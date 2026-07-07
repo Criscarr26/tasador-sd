@@ -1,0 +1,19 @@
+{
+  "mae": 3983.23,
+  "rmse": 6749.33,
+  "r2": 0.9283,
+  "n_train": 400,
+  "n_test": 100,
+  "avg_price_by_sector": {
+    "Arroyo Hondo": 44219.64,
+    "Bella Vista": 44810.71,
+    "Gazcue": 42661.9,
+    "Los Alcarrizos": 20629.69,
+    "Los Prados": 44432.61,
+    "Naco": 84692.68,
+    "Piantini": 88257.5,
+    "Santo Domingo Este": 22520.97,
+    "Serrallés": 80172.73,
+    "Villa Mella": 20626.53
+  }
+}

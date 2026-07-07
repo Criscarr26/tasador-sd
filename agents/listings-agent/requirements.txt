@@ -1,0 +1,9 @@
+# Plus the shared domain package from this monorepo:
+#   pip install -e ../../packages/core_py
+# (on the dev machine, a .pth file in site-packages pointing to
+# packages/core_py/src does the same without touching the network)
+anthropic==0.116.0
+beautifulsoup4==4.15.0
+python-dotenv==1.2.2
+requests==2.34.2
+truststore==0.10.4

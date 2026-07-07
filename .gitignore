@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+
+# Secrets
+.env
+
+# Node (future apps)
+node_modules/
+dist/
+.expo/
+
+# Editor/session
+.claude/
+.vscode/
+.DS_Store
