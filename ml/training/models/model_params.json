@@ -1,0 +1,112 @@
+{
+  "sectors": [
+    "Arroyo Hondo",
+    "Bella Vista",
+    "Gazcue",
+    "Los Alcarrizos",
+    "Los Prados",
+    "Naco",
+    "Piantini",
+    "Santo Domingo Este",
+    "Serrallés",
+    "Villa Mella"
+  ],
+  "numeric_features": [
+    "area_m2",
+    "bedrooms",
+    "bathrooms",
+    "parking_spots",
+    "furnished",
+    "age_years"
+  ],
+  "scaler_mean": [
+    104.9475,
+    2.0225,
+    1.695,
+    0.9825,
+    0.345,
+    16.79
+  ],
+  "scaler_scale": [
+    43.51792439616117,
+    0.9523621947557558,
+    0.8642771546211321,
+    0.8787455547540483,
+    0.4753682782853732,
+    10.588243480388993
+  ],
+  "coef": [
+    -3145.4323316449677,
+    -2362.537654640993,
+    -5334.040748256726,
+    -12500.6446241622,
+    -2158.9840819056412,
+    16511.352351033715,
+    18304.206202155252,
+    -11033.673069817829,
+    14096.227179678834,
+    -12376.473222439388,
+    8836.306102214521,
+    2751.2645225267515,
+    2358.3616274837805,
+    3220.1219379271834,
+    3073.4875830962646,
+    -2730.736665126515
+  ],
+  "intercept": 47841.33064785994,
+  "metrics": {
+    "mae": 3983.23,
+    "rmse": 6749.33,
+    "r2": 0.9283
+  },
+  "avg_price_by_sector": {
+    "Arroyo Hondo": 44219.64,
+    "Bella Vista": 44810.71,
+    "Gazcue": 42661.9,
+    "Los Alcarrizos": 20629.69,
+    "Los Prados": 44432.61,
+    "Naco": 84692.68,
+    "Piantini": 88257.5,
+    "Santo Domingo Este": 22520.97,
+    "Serrallés": 80172.73,
+    "Villa Mella": 20626.53
+  },
+  "reference_cases": [
+    {
+      "input": {
+        "sector": "Piantini",
+        "area_m2": 120,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "parking_spots": 2,
+        "furnished": 1,
+        "age_years": 5
+      },
+      "expected": 83862.2335508752
+    },
+    {
+      "input": {
+        "sector": "Villa Mella",
+        "area_m2": 70,
+        "bedrooms": 2,
+        "bathrooms": 1,
+        "parking_spots": 1,
+        "furnished": 0,
+        "age_years": 15
+      },
+      "expected": 24702.501695683335
+    },
+    {
+      "input": {
+        "sector": "Gazcue",
+        "area_m2": 95,
+        "bedrooms": 2,
+        "bathrooms": 2,
+        "parking_spots": 1,
+        "furnished": 1,
+        "age_years": 30
+      },
+      "expected": 42146.8359346439
+    }
+  ]
+}

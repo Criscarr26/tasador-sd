@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tasador-core"
+version = "0.1.0"
+description = "Shared domain contract for the Tasador SD suite: schema, validation and model helpers."
+requires-python = ">=3.10"
+# Intentionally no hard dependencies: schema/validation is stdlib-only so the
+# package installs offline into any venv. Model helpers import joblib/pandas/
+# scikit-learn lazily; consumers that train or predict already have them.
+dependencies = []
+
+[project.optional-dependencies]
+model = ["joblib", "pandas", "scikit-learn"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
