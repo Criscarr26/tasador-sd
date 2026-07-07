@@ -1,0 +1,14 @@
+# API runtime
+fastapi==0.121.3
+uvicorn==0.34.0
+
+# Model runtime (same versions the training venv uses)
+joblib
+pandas
+scikit-learn
+
+# Shared domain package from this monorepo:
+#   pip install -e ../../packages/core_py
+
+# Tests only
+httpx
