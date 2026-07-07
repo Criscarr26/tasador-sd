@@ -24,7 +24,10 @@ ml/training/         training pipeline; one run produces every runtime
 agents/listings-agent/  data agent; writes CSV locally and can mirror
                      validated listings to the shared Postgres (--sink supabase)
 supabase/migrations/ formal migration history for the shared database
-apps/                (upcoming) API core and commercial web app
+apps/api/            FastAPI inference core: POST /v1/appraisals and
+                     GET /v1/model/params (versioned weights that keep
+                     on-device clients in sync with the served model)
+apps/                (upcoming) commercial web app
 ```
 
 ## Verified invariants
@@ -36,6 +39,10 @@ apps/                (upcoming) API core and commercial web app
   byte-equivalent to the one shipped in the mobile app.
 - `agents/listings-agent`: `python agent.py --dry-run` exercises the full
   pipeline offline (fixture fetch, validation, CSV, budgets, report).
+- `apps/api/tests`: the API's appraisals reproduce the exported reference
+  predictions exactly, and invalid inputs are rejected with the shared
+  validation messages. Verified live end-to-end: the mobile app syncs
+  weights from GET /v1/model/params and appraises with them.
 
 ## Development setup
 
