@@ -23,7 +23,10 @@ for frictionless demo signups, or leave it on for real deployments.
 2. Push this repository to the Space (or upload `Dockerfile`,
    `packages/core_py`, `apps/api` and `ml/training/models`).
 3. The `Dockerfile` at the repo root serves the API on port 7860.
-4. Verify: `https://YOUR-SPACE.hf.space/health` returns the model version.
+4. Set the CORS allowlist to your web origins (Space settings > Variables):
+   `ALLOWED_ORIGINS=https://YOUR-WEB.vercel.app`
+   (without it, only http://localhost:3000 may call the API from a browser).
+5. Verify: `https://YOUR-SPACE.hf.space/health` returns the model version.
 
 Alternative: Render free web service with the same Dockerfile (set the
 port to 7860 or override the CMD).

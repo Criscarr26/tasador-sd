@@ -21,7 +21,7 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -44,14 +44,41 @@ app = FastAPI(
     description="Rental price appraisals for Santo Domingo, DR.",
 )
 
-# Web clients (the Next.js app, local dev) call this API directly from
-# the browser. Tighten allow_origins when the production domain exists.
+# CORS allowlist: only the web app's origins may call this API from a
+# browser. Native mobile apps send no Origin header, so they are never
+# affected by CORS. Add production origins via env, comma-separated:
+#   ALLOWED_ORIGINS=https://tasador-sd.vercel.app,https://tudominio.com
+_DEFAULT_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("ALLOWED_ORIGINS", _DEFAULT_ORIGINS).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault(
+        "Strict-Transport-Security", "max-age=63072000; includeSubDomains"
+    )
+    # The interactive docs (/docs) load Swagger UI assets, so the strict
+    # JSON-only policy applies everywhere except there.
+    if not request.url.path.startswith(("/docs", "/redoc", "/openapi")):
+        response.headers.setdefault(
+            "Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'"
+        )
+    return response
 
 
 class AppraisalRequest(BaseModel):
