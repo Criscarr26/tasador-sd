@@ -30,6 +30,20 @@ data-collection agent, Expo mobile app) become one platform.
 - `Dockerfile` for the API (Hugging Face Spaces / any container host)
   and a deployment guide in `docs/DEPLOY.md`.
 
+### Security
+- API: per-IP sliding-window rate limit (`RATE_LIMIT_PER_MINUTE`,
+  default 60), structured request logging, CORS restricted to an
+  allowlist (`ALLOWED_ORIGINS`), and security headers (CSP, nosniff,
+  `X-Frame-Options`, HSTS, Referrer-Policy).
+- Web: full security-header set via `next.config.ts` (CSP with
+  `connect-src` limited to Supabase and the API, `frame-ancestors 'none'`,
+  Permissions-Policy, HSTS).
+- Hardened container: non-root user, dependency install layer cached,
+  `.dockerignore` keeps secrets and `node_modules` out of the build.
+- `0004_estimate_constraints.sql`: value CHECK constraints on the
+  appraisal history as defense in depth behind RLS.
+- `SECURITY.md` with the disclosure process and security model.
+
 ### Fixed
 - Validation ranges had diverged across clients (area 20–500 on web,
   20–1000 on mobile, 15–1000 in the agent); resolved product-wide in

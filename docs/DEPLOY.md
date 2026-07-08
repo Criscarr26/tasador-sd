@@ -13,6 +13,8 @@ The project already runs on a Supabase instance. To bring a fresh one
    in the current production project).
 2. `0002_listings.sql` — agent listings table (service-role only).
 3. `0003_plans_usage.sql` — profiles, plans and monthly usage limits.
+4. `0004_estimate_constraints.sql` — value CHECK constraints on the
+   appraisal history (defense in depth against tampered clients).
 
 Also disable **Authentication > Sign In / Up > Email > Confirm email**
 for frictionless demo signups, or leave it on for real deployments.
@@ -26,7 +28,10 @@ for frictionless demo signups, or leave it on for real deployments.
 4. Set the CORS allowlist to your web origins (Space settings > Variables):
    `ALLOWED_ORIGINS=https://YOUR-WEB.vercel.app`
    (without it, only http://localhost:3000 may call the API from a browser).
-5. Verify: `https://YOUR-SPACE.hf.space/health` returns the model version.
+5. Optional: tune `RATE_LIMIT_PER_MINUTE` (default 60 requests/IP/min; 0
+   disables). The limit is per instance — see the audit for the
+   Redis-backed version needed once the API scales horizontally.
+6. Verify: `https://YOUR-SPACE.hf.space/health` returns the model version.
 
 Alternative: Render free web service with the same Dockerfile (set the
 port to 7860 or override the CMD).
