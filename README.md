@@ -27,7 +27,9 @@ supabase/migrations/ formal migration history for the shared database
 apps/api/            FastAPI inference core: POST /v1/appraisals and
                      GET /v1/model/params (versioned weights that keep
                      on-device clients in sync with the served model)
-apps/                (upcoming) commercial web app
+apps/web/            commercial web app (Next.js): landing + appraiser
+                     backed by the API, shared Supabase auth and the
+                     same appraisal history as the mobile app
 ```
 
 ## Verified invariants
