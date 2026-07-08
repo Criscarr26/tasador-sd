@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        # scikit-learn pinned to the version that trained the committed
+        # .pkl, so the pipeline loads identically in CI.
+        run: |
+          pip install scikit-learn==1.9.0 pandas==3.0.3 joblib==1.5.3 fastapi uvicorn httpx
+          pip install -e packages/core_py
+      - name: Core contract tests
+        working-directory: packages/core_py
+        run: python -m unittest discover tests -v
+      - name: API contract tests
+        working-directory: apps/api
+        run: python -m unittest discover tests -v
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build production bundle
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run build

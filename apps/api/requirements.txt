@@ -1,11 +1,12 @@
 # API runtime
-fastapi==0.121.3
-uvicorn==0.34.0
+fastapi==0.139.0
+uvicorn
 
-# Model runtime (same versions the training venv uses)
-joblib
-pandas
-scikit-learn
+# Model runtime — scikit-learn pinned to the version that trained the
+# committed .pkl so the pipeline loads identically everywhere.
+scikit-learn==1.9.0
+pandas==3.0.3
+joblib==1.5.3
 
 # Shared domain package from this monorepo:
 #   pip install -e ../../packages/core_py
