@@ -1,0 +1,13 @@
+# Never normalize line endings on binary assets (would corrupt them).
+*.pdf binary
+*.png binary
+*.ico binary
+*.pkl binary
+
+# Normalize text to LF in the repo regardless of the author's OS.
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.md text eol=lf
+*.sql text eol=lf
+*.json text eol=lf
