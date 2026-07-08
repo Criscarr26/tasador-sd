@@ -125,7 +125,7 @@ def on_page(canvas, doc):
     canvas.saveState()
     canvas.setFont("Helvetica", 7.5)
     canvas.setFillColor(MUTED)
-    canvas.drawString(2 * cm, 1.15 * cm, "Tasador SD - Auditoria integral del producto - v1.0 - julio 2026")
+    canvas.drawString(2 * cm, 1.15 * cm, "Tasador SD - Auditoria integral del producto - v1.1 - julio 2026")
     canvas.drawRightString(A4[0] - 2 * cm, 1.15 * cm, f"Pagina {doc.page}")
     canvas.setStrokeColor(BORDER)
     canvas.setLineWidth(0.5)
@@ -149,7 +149,7 @@ cover_rows = [
     ("Producto", "Tasador SD - plataforma de tasación de alquileres"),
     ("Repositorio principal", "github.com/Criscarr26/tasador-sd"),
     ("Cliente móvil (demo)", "github.com/Criscarr26/rental-estimator-mobile"),
-    ("Versión del documento", "1.0"),
+    ("Versión del documento", "1.1"),
     ("Fecha", "8 de julio de 2026"),
     ("Preparado para", "Cristian Carrera"),
     ("Clasificación", "Interno / presentable a inversionistas"),
@@ -178,10 +178,12 @@ p("El estado actual es sólido para una beta privada: el monorepo está publicad
   "sobre Supabase con Row Level Security verificado en producción, y el endurecimiento básico "
   "(CORS con lista blanca, security headers, CSP sin violaciones) está aplicado y probado.")
 p("Las brechas que separan el estado actual de un lanzamiento comercial son conocidas y acotadas: "
-  "aplicar dos migraciones de base de datos, desplegar API y web en sus plataformas gratuitas, "
-  "reactivar la confirmación de correo, proteger el API con autenticación y rate limiting, sustituir "
-  "el dataset sintético por datos reales (el agente ya está construido y en pausa por decisión de "
-  "negocio) e integrar la pasarela de pagos. Este documento detalla cada una con su prioridad, "
+  "aplicar las migraciones de base de datos, desplegar API y web en sus plataformas gratuitas, "
+  "reactivar la confirmación de correo, sustituir el dataset sintético por datos reales (el agente ya "
+  "está construido y en pausa por decisión de negocio), añadir claves de API para el acceso medido de "
+  "terceros e integrar la pasarela de pagos. El endurecimiento de la superficie pública ya está "
+  "aplicado y verificado (rate limiting por IP, CORS con lista blanca, security headers, contenedor "
+  "no-root y constraints de base de datos). Este documento detalla cada tarea con su prioridad, "
   "esfuerzo y riesgo.")
 h2("1.1 Veredicto")
 p("<b>Apto para beta privada de inmediato; apto para comercialización tras completar las tareas "
@@ -390,19 +392,21 @@ h2("5.2 Problemas detectados, impacto y solución")
 table(
     ["Problema", "Por qué importa / impacto", "Solución propuesta", "Prioridad"],
     [
-        ["El API es público: sin autenticación ni rate limiting",
-         "Cualquiera puede consumir /v1/appraisals sin límite: abuso de cómputo, DoS barato y, cuando haya "
-         "planes de pago, evasión del producto.",
-         "Validar JWT de Supabase en el API (Authorization: Bearer) + rate limit por IP/usuario (slowapi) + "
-         "tabla api_keys para terceros. Mantener /health público.",
-         "<b>Alta</b> (antes de beta pública)"],
+        ["El tasador público del API es anónimo (sin cuenta)",
+         "Es intencional: la tasación de la landing es el funnel de captación y debe funcionar sin login. El "
+         "riesgo de abuso de cómputo YA está acotado por el rate limit por IP aplicado (60/min, configurable). "
+         "Falta el acceso medido para terceros de pago.",
+         "Hecho: rate limit por IP. Pendiente (beta pública): tabla api_keys con hash para integraciones de "
+         "terceros y conteo de tasaciones por clave; el /v1 ya versiona para evolucionar sin romper.",
+         "<b>Media</b> (rate limit ya mitiga; API keys antes de vender acceso)"],
         ["Modelo entrenado con datos sintéticos",
          "Precisión real desconocida frente al mercado; riesgo reputacional al cobrar.",
          "Ejecutar el flywheel ya construido (tareas 7-9) y re-evaluar métricas con hold-out real.",
          "<b>Alta</b>"],
-        ["Sin observabilidad (logs estructurados, errores, uptime)",
-         "Un fallo en producción sería invisible hasta que un usuario lo reporte.",
-         "Sentry (web+móvil), logging JSON en el API, UptimeRobot en /health.",
+        ["Observabilidad parcial (falta agregación de errores y uptime)",
+         "El API ya emite logging estructurado por request (método, ruta, estado, latencia); falta captura de "
+         "errores de cliente y monitoreo de disponibilidad para enterarse de un fallo sin que lo reporte un usuario.",
+         "Añadir Sentry (web+móvil) y UptimeRobot en /health; el logging JSON del API ya está.",
          "Media"],
         ["El límite de uso vive en el guardado, no en la tasación",
          "El trigger de 0003 cuenta inserts en saved_estimates; tasaciones anónimas via API no descuentan.",
@@ -445,7 +449,10 @@ p("Enfoque de pentest de caja blanca sobre el código y la configuración reales
   "para los componentes aún no construidos (pagos). Estado por dominio y hallazgos accionables.")
 h2("6.1 Backend e inyecciones")
 li("<b>SQL/NoSQL injection: mitigado.</b> No hay SQL crudo en el producto; los clientes usan PostgREST "
-   "(parametrizado) y el API no toca la base de datos. Las migraciones son DDL estático.",
+   "(parametrizado) y el API no toca la base de datos. Las migraciones son DDL estático. Como defensa en "
+   "profundidad, la migración 0004 añade CHECK constraints de valores en saved_estimates: aunque un cliente "
+   "manipulado escriba en sus propias filas (RLS lo confina a ellas), no puede insertar valores fuera del "
+   "dominio.",
    "<b>RCE / deserialización: bajo riesgo.</b> El único artefacto deserializado es el .pkl propio, generado por "
    "el pipeline de entrenamiento del repositorio; nunca cargar modelos de origen externo sin firma.",
    "<b>SSRF/XXE/Path traversal/File upload/Command injection: no aplican</b> en el API (no hay fetch de URLs "
@@ -462,17 +469,20 @@ li("<b>XSS: bajo.</b> React escapa por defecto y no se usa dangerouslySetInnerHT
 h2("6.3 APIs, autenticación y autorización")
 li("Supabase Auth emite JWT firmados; la autorización de datos es RLS a nivel de fila (verificada en "
    "producción para saved_estimates; listings/profiles/usage llegan con las migraciones pendientes).",
-   "<b>Hallazgo principal (alta):</b> el API de inferencia no exige identidad ni aplica rate limiting (ver 5.2). "
-   "Plan: JWT de Supabase para clientes propios, api_keys con hash para terceros, slowapi por IP/clave, "
-   "y versionado /v1 ya presente para evolucionar sin romper.",
+   "<b>Estado:</b> el rate limiting por IP ya está aplicado y probado (test que verifica el 429 con Retry-After). "
+   "El tasador público es anónimo por diseño (funnel de captación); el guardado en historial sí exige sesión y "
+   "queda confinado por RLS. Pendiente para vender acceso: api_keys con hash para terceros y conteo por clave; "
+   "el versionado /v1 ya existe para evolucionar sin romper.",
    "Rotación de secretos: la publishable key es pública por diseño; la service_role key solo existe en el "
    ".env local del agente (gitignored, verificado). Si alguna vez se expone, rotar en Supabase y actualizar el .env.")
 h2("6.4 Infraestructura")
 li("HTTPS/TLS: terminación gestionada por Vercel/HF/Supabase con certificados automáticos; HSTS ya se envía.",
-   "Docker: imagen python:3.11-slim con dependencias fijadas. Mejoras: usuario no root y digest pinning "
-   "(prioridad baja).",
+   "Docker: imagen python:3.11-slim con dependencias fijadas, <b>usuario no-root (uid 10001) ya aplicado</b> y "
+   ".dockerignore que mantiene .env, node_modules y .git fuera del contexto de build. Mejora restante: fijar la "
+   "imagen base por digest (prioridad baja).",
    "Kubernetes/Firewall/Reverse proxy: no aplican en esta escala; el reverse proxy lo aportan las plataformas.",
-   "Variables de entorno: separadas por app con .env.example; ninguna credencial en los repos (verificado).")
+   "Variables de entorno: separadas por app con .env.example; ninguna credencial en los repos (verificado). "
+   "El repo incluye SECURITY.md con el proceso de divulgación y el modelo de seguridad resumido.")
 h2("6.5 Base de datos")
 li("Cifrado en reposo y en tránsito: provisto por Supabase (AES-256 / TLS).",
    "Permisos: anon/authenticated solo ven lo que las políticas permiten; listings sin políticas (solo service role).",
@@ -586,8 +596,9 @@ table(
     [
         ["1 - Crítica", "Completar tareas 1-4 de la sección 4 (migraciones, deploys, higiene de cuentas).",
          "Producto vivo en internet con RLS completo."],
-        ["2 - Alta", "Autenticación + rate limiting en el API y conteo de uso unificado.",
-         "El freemium se vuelve exigible; el API deja de ser un costo abierto."],
+        ["2 - Alta", "Claves de API (api_keys con hash) para acceso medido de terceros y conteo de tasaciones "
+         "unificado. (El rate limiting por IP ya está aplicado.)",
+         "El freemium y el acceso B2B a la API se vuelven exigibles."],
         ["3 - Alta", "Ejecutar el flywheel de datos reales (agente -> reentrenar -> publicar).",
          "Precisión de mercado real; argumento de venta honesto."],
         ["4 - Alta", "Landing de negocio (precios, cómo funciona, FAQ) + política de privacidad.",
@@ -596,7 +607,7 @@ table(
         ["6 - Media", "Pasarela de pagos con las reglas de 6.9.", "Ingresos con superficie de fraude minimizada."],
         ["7 - Media", "Nonces CSP, focus ring propio, contraste AA, validación inline.",
          "Calidad de empresa grande en detalles perceptibles."],
-        ["8 - Baja", "Dependabot, usuario no root en Docker, export mensual de BD, EAS/TestFlight.",
+        ["8 - Baja", "Dependabot, digest pinning de la imagen base, export mensual de BD, EAS/TestFlight.",
          "Higiene operativa sostenida."],
     ],
     [2.2 * cm, 8.0 * cm, 6.0 * cm],
@@ -604,8 +615,9 @@ table(
 
 # ===================== 9. POLITICA DE SEGURIDAD =====================
 h1("9. Política de seguridad (Fase 6)")
-p("Política operativa de Tasador SD, versión 1.0 (julio 2026). Aplica a todo el código, datos e "
-  "infraestructura del producto. Hoy todos los roles los ejerce el fundador; cada responsabilidad se "
+p("Política operativa de Tasador SD, versión 1.1 (julio 2026). Aplica a todo el código, datos e "
+  "infraestructura del producto. El repositorio incluye una copia operativa en SECURITY.md con el "
+  "proceso de divulgación. Hoy todos los roles los ejerce el fundador; cada responsabilidad se "
   "delega explícitamente cuando el equipo crezca.")
 h2("9.1 Objetivos y alcance")
 li("Proteger los datos de los usuarios (correo, credenciales, historial de tasaciones) y la integridad del "
@@ -679,7 +691,7 @@ table(
          "compartidos, límites en BD, CI, endurecimiento básico.", "Hecho (jul 2026)", "Todo verificado E2E - cumplido."],
         ["<b>Beta privada</b>", "Tareas críticas 1-4; Sentry+uptime; 5-10 agentes inmobiliarios invitados; "
          "iteración de feedback semanal.", "2 semanas", "10 usuarios activos y 0 errores críticos en 2 semanas."],
-        ["<b>Beta pública</b>", "Datos reales (flywheel), auth+rate limit del API, Confirm email, landing de "
+        ["<b>Beta pública</b>", "Datos reales (flywheel), api_keys para terceros, Confirm email, landing de "
          "negocio, privacidad/términos, dominio propio.", "4-6 semanas", "Registro abierto y métricas de retención "
          "recogiéndose."],
         ["<b>Versión 1.0</b>", "Pagos (Stripe; evaluar Azul), plan Pro exigible, exportación PDF de tasaciones, "
@@ -698,7 +710,7 @@ li("[ ] Migraciones 0002 y 0003 aplicadas y RLS verificado por sonda externa.",
    "[ ] Web en Vercel con las 3 variables y headers de seguridad servidos (verificar con curl -I).",
    "[ ] Móvil apuntando al API público; sincronización de pesos comprobada.",
    "[ ] Cuentas de prueba eliminadas; Confirm email activado; contraseña mínima 8.",
-   "[ ] Autenticación y rate limiting activos en el API.",
+   "[x] Rate limiting activo en el API (hecho). [ ] Claves de API para terceros si se vende acceso B2B.",
    "[ ] Modelo reentrenado con datos reales y métricas publicadas honestas en la landing.",
    "[ ] Política de privacidad y términos publicados y enlazados en registro.",
    "[ ] Sentry recibiendo eventos de web y móvil; UptimeRobot activo.",
@@ -728,10 +740,10 @@ table(
         ["Apple mantiene congelado Expo Go (distribución iOS)",
          "Alta", "Demo iOS limitada a SDK 54",
          "Ya mitigado fijando SDK 54; para clientes reales, EAS Build + TestFlight (tarea 13)."],
-        ["Abuso del API público antes de auth/rate limit",
-         "Media", "Costos/caída del tier gratuito",
-         "Prioridad alta ya planificada (sección 5.2); mientras tanto ALLOWED_ORIGINS reduce el abuso desde "
-         "navegadores."],
+        ["Abuso del API público de tasación",
+         "Baja", "Costos/caída del tier gratuito",
+         "Mitigado: rate limit por IP (60/min) + ALLOWED_ORIGINS. Residual bajo hasta introducir acceso B2B "
+         "medido con api_keys."],
         ["Deriva de versión de scikit-learn frente al .pkl",
          "Baja", "API no arranca tras upgrade descuidado",
          "Versión fijada en CI/Docker/requirements; re-serializar el modelo en upgrades planificados."],
