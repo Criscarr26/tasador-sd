@@ -66,6 +66,20 @@ class TestSecurity(unittest.TestCase):
         blocked = client.get("/health", headers={"Origin": "https://evil.example.com"})
         self.assertIsNone(blocked.headers.get("access-control-allow-origin"))
 
+    def test_rate_limit_returns_429_over_the_cap(self):
+        original = main.RATE_LIMIT_PER_MINUTE
+        main.RATE_LIMIT_PER_MINUTE = 2
+        main._hits.clear()
+        try:
+            self.assertEqual(client.get("/health").status_code, 200)
+            self.assertEqual(client.get("/health").status_code, 200)
+            throttled = client.get("/health")
+            self.assertEqual(throttled.status_code, 429)
+            self.assertEqual(throttled.headers.get("Retry-After"), "60")
+        finally:
+            main.RATE_LIMIT_PER_MINUTE = original
+            main._hits.clear()
+
 
 class TestModelParams(unittest.TestCase):
     def test_params_are_versioned_and_complete(self):

@@ -1,0 +1,18 @@
+# Keep the Docker build context small and secret-free. Without this,
+# `docker build .` from the repo root uploads node_modules, .git and any
+# local .env into the build context.
+.git
+.github
+**/.env
+**/.env.*
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.venv
+**/.next
+**/dist
+apps/web
+docs
+agents
+*.md
+!ml/training/models
