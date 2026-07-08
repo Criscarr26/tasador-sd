@@ -1,70 +1,114 @@
 # Tasador SD
 
-Unified platform for the Santo Domingo rental appraisal product: one domain
-contract, one data plane and (soon) one API serving every client.
+[![CI](https://github.com/Criscarr26/tasador-sd/actions/workflows/ci.yml/badge.svg)](https://github.com/Criscarr26/tasador-sd/actions/workflows/ci.yml)
 
-This monorepo is the convergence of three formerly independent projects:
-the [web estimator](https://github.com/Criscarr26/rental-price-estimator-sd)
-(Streamlit, stays as public demo), the
-[mobile app](https://github.com/Criscarr26/rental-estimator-mobile) (Expo +
-Supabase) and the
-[listings agent](https://github.com/Criscarr26/rental-listings-agent)
-(autonomous data collection).
+Rental price appraisal platform for Santo Domingo, Dominican Republic.
+One machine-learning model, one domain contract, three synchronized
+clients: a commercial web app, a mobile app and a public demo — plus an
+autonomous agent that collects real market data to retrain the model.
 
-## Structure
+| Web (Next.js) | Mobile (Expo) |
+|:---:|:---:|
+| ![Web appraiser](apps/web/docs/screen-web-tasador.png) | <img src="docs/mobile-estimar.png" width="260" alt="Mobile appraiser" /> |
 
-```
-packages/core_py/    tasador-core: schema, sectors, validation ranges and
-                     model helpers -- the single source of truth that used
-                     to be duplicated (and had already diverged) across
-                     the three projects
-ml/training/         training pipeline; one run produces every runtime
-                     artifact: .pkl (API/web), metrics.json and
-                     model_params.json (clients without scikit-learn)
-agents/listings-agent/  data agent; writes CSV locally and can mirror
-                     validated listings to the shared Postgres (--sink supabase)
-supabase/migrations/ formal migration history for the shared database
-apps/api/            FastAPI inference core: POST /v1/appraisals and
-                     GET /v1/model/params (versioned weights that keep
-                     on-device clients in sync with the served model)
-apps/web/            commercial web app (Next.js): landing + appraiser
-                     backed by the API, shared Supabase auth and the
-                     same appraisal history as the mobile app
-```
+## Architecture
 
-## Verified invariants
+```mermaid
+flowchart TB
+    subgraph Clients
+        WEB["Web app (Next.js)\napps/web"]
+        MOB["Mobile app (Expo)\nrental-estimator-mobile"]
+        DEMO["Streamlit demo\n(marketing)"]
+    end
 
-- `packages/core_py/tests`: schema validation + the export contract
-  (exported plain weights reproduce the sklearn pipeline exactly).
-- `ml/training/train.py` reproduces the deployed model's metrics
-  (MAE RD$3,983 / RMSE RD$6,749 / R2 0.928) and emits `model_params.json`
-  byte-equivalent to the one shipped in the mobile app.
-- `agents/listings-agent`: `python agent.py --dry-run` exercises the full
-  pipeline offline (fixture fetch, validation, CSV, budgets, report).
-- `apps/api/tests`: the API's appraisals reproduce the exported reference
-  predictions exactly, and invalid inputs are rejected with the shared
-  validation messages. Verified live end-to-end: the mobile app syncs
-  weights from GET /v1/model/params and appraises with them.
+    subgraph Core["API core (FastAPI) — apps/api"]
+        APPR["POST /v1/appraisals"]
+        MODP["GET /v1/model/params\n(weights versioned by content hash)"]
+    end
 
-## Development setup
+    subgraph Supabase
+        AUTH["Auth (shared account\nacross web and mobile)"]
+        DB[("Postgres + RLS\nsaved_estimates · listings\nprofiles · usage_counters")]
+    end
 
-Each Python component runs in its own venv. `tasador-core` has zero hard
-dependencies; install it into a venv with:
+    subgraph Data["Data flywheel"]
+        AGENT["Listings agent\nagents/listings-agent"]
+        TRAIN["Training\nml/training"]
+    end
 
-```
-pip install -e packages/core_py
+    PKG["tasador-core\npackages/core_py\n(single domain contract)"]
+
+    WEB --> APPR
+    MOB -.->|weight sync + offline fallback| MODP
+    WEB & MOB --> AUTH --> DB
+    AGENT -->|validated listings| DB
+    TRAIN -->|reads listings, publishes artifacts| MODP
+    PKG -.-> Core & AGENT & TRAIN
 ```
 
-Run the core tests:
+The design rule that holds everything together: **the model has exactly
+one definition**. `tasador-core` owns the schema, sectors, validation
+ranges and pipeline; training exports plain weights with embedded
+reference predictions; every client that predicts on-device must
+reproduce those references exactly (enforced by tests in CI).
+
+## Monorepo layout
 
 ```
-cd packages/core_py
-python -m unittest discover tests -v
+packages/core_py/     tasador-core: domain schema, validation, model helpers
+ml/training/          training pipeline; emits .pkl, metrics and exported weights
+apps/api/             FastAPI inference core (single source of inference)
+apps/web/             commercial web app (Next.js 16, shared design tokens)
+agents/listings-agent/ autonomous data-collection agent (Anthropic tool use)
+supabase/migrations/  formal database history (RLS, listings, plans/usage)
+docs/                 deployment guide and assets
 ```
 
-## Database
+The mobile app lives in its own repo as a standalone demo:
+[rental-estimator-mobile](https://github.com/Criscarr26/rental-estimator-mobile).
 
-Migrations live in `supabase/migrations` and are applied in order in the
-Supabase SQL Editor. `0001` is the baseline already in production;
-`0002` adds the `listings` table (service-role only, no RLS policies) that
-the agent writes to with `--sink supabase`.
+## Quality gates
+
+- `packages/core_py/tests` — domain validation + the parity contract:
+  exported weights must reproduce the sklearn pipeline exactly.
+- `apps/api/tests` — the API's appraisals must equal the exported
+  reference predictions; invalid input is rejected with shared messages.
+- `apps/web` — production build on every push.
+- Verified end-to-end against live services: sign in, appraise
+  (RD$ 83,862 on the Piantini reference case), automatic history save,
+  shared history across web and mobile.
+
+## Getting started (development)
+
+```bash
+# API (needs a venv with apps/api/requirements.txt + tasador-core)
+cd apps/api && uvicorn main:app --port 8000
+
+# Web
+cd apps/web && npm install && npm run dev   # http://localhost:3000
+
+# Core tests
+cd packages/core_py && python -m unittest discover tests -v
+
+# Agent, offline end-to-end
+cd agents/listings-agent && python agent.py --dry-run
+```
+
+Copy `apps/web/.env.local.example` to `.env.local` (Supabase keys are
+optional: without them the appraiser works and only the history is
+disabled).
+
+## Deployment
+
+Free-tier deployment for every piece (Supabase + Hugging Face Spaces +
+Vercel): see [docs/DEPLOY.md](docs/DEPLOY.md).
+
+## Business model (designed, not yet charged)
+
+Plans live in the database (`profiles.plan`) with monthly usage limits
+enforced by triggers — no client can bypass them. Free: 100 appraisals
+per month; Pro/Agency: unlimited, reserved for payment integration.
+
+## License
+
+[MIT](LICENSE)
