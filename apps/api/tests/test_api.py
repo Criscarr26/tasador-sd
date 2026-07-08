@@ -49,6 +49,24 @@ class TestAppraisals(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
 
 
+class TestSecurity(unittest.TestCase):
+    def test_security_headers_present(self):
+        response = client.get("/health")
+        self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+        self.assertEqual(response.headers["x-frame-options"], "DENY")
+        self.assertEqual(response.headers["referrer-policy"], "no-referrer")
+        self.assertIn("content-security-policy", response.headers)
+        self.assertIn("strict-transport-security", response.headers)
+
+    def test_cors_allows_only_the_web_app(self):
+        allowed = client.get("/health", headers={"Origin": "http://localhost:3000"})
+        self.assertEqual(
+            allowed.headers.get("access-control-allow-origin"), "http://localhost:3000"
+        )
+        blocked = client.get("/health", headers={"Origin": "https://evil.example.com"})
+        self.assertIsNone(blocked.headers.get("access-control-allow-origin"))
+
+
 class TestModelParams(unittest.TestCase):
     def test_params_are_versioned_and_complete(self):
         response = client.get("/v1/model/params")
