@@ -4,6 +4,8 @@ apps/web
 apps/api
 agents
 docs
+tests
+packages
 .github
 supabase
 ml/training/data

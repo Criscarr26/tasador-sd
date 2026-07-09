@@ -1,8 +1,6 @@
-# Serverless API (Vercel Python runtime) - deliberately tiny: no
-# scikit-learn/pandas/joblib. Prediction uses the exported weights via
-# tasador-core (pure Python). Installed from this same public repo by
-# git subdirectory: a local path (./packages/core_py) breaks `uv lock`
-# on Vercel, but a git dependency resolves cleanly and keeps a single
-# source of truth for the domain contract.
+# Serverless API (Vercel Python runtime). Only fastapi: the function is
+# self-contained (no scikit-learn/pandas and no tasador-core install),
+# because Vercel's uv builder cannot install the monorepo package. The
+# domain logic is inlined in api/index.py and kept honest by
+# tests/test_serverless_parity.py (compares it against tasador-core in CI).
 fastapi
-tasador-core @ git+https://github.com/Criscarr26/tasador-sd.git@main#subdirectory=packages/core_py
