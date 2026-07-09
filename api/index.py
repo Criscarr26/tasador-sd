@@ -1,17 +1,18 @@
 """Tasador SD API - serverless entry (Vercel Python runtime).
 
-Same public contract as the container version in apps/api, but predicts
-from the exported model weights (tasador_core.predict_from_params) instead
-of loading the scikit-learn pipeline. The parity contract test guarantees
-both produce identical numbers, so this is a lightweight, dependency-free
-deployment target (no sklearn/pandas/joblib) that fits a free serverless
-tier. The model_version is the same content hash of model_params.json, so
-clients cannot tell which backend served them.
+Self-contained on purpose: Vercel's uv-based builder cannot install the
+local/monorepo tasador-core package (uv ignores git `#subdirectory` and
+rejects local paths), so this function inlines the tiny prediction and
+validation logic instead of importing it. That logic is a reproduction of
+the domain contract, exactly like the mobile app's TypeScript port -- and
+like it, drift is impossible to miss: tests/test_serverless_parity.py
+imports BOTH this module and tasador-core in CI and fails on any mismatch.
 
-Note on rate limiting: the container's in-memory per-IP limit is useless in
-serverless (each invocation may be a fresh instance). Abuse is bounded by
-the platform edge and by per-user metering at the database (usage_counters
-trigger). Documented in the audit.
+Same public contract and identical numbers as the container version in
+apps/api (the model is a linear regression, so predicting from the
+exported weights matches the scikit-learn pipeline to the cent). The
+model_version is the same content hash of model_params.json, so clients
+cannot tell which backend served them.
 """
 
 from __future__ import annotations
@@ -25,13 +26,50 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from tasador_core.model import predict_from_params
-from tasador_core.schema import validate_appraisal_input
-
 ROOT = Path(__file__).resolve().parent.parent
 _params_text = (ROOT / "ml" / "training" / "models" / "model_params.json").read_text(encoding="utf-8")
-model_params = json.loads(_params_text)
+MODEL = json.loads(_params_text)
 MODEL_VERSION = hashlib.sha256(_params_text.encode("utf-8")).hexdigest()[:12]
+
+# Numeric feature order and sanity ranges. Mirrors tasador_core.schema;
+# the CI parity test asserts these stay identical to the source of truth.
+NUMERIC_FEATURES = ["area_m2", "bedrooms", "bathrooms", "parking_spots", "furnished", "age_years"]
+APPRAISAL_RANGES = {
+    "area_m2": (20, 1000),
+    "bedrooms": (0, 10),
+    "bathrooms": (1, 10),
+    "parking_spots": (0, 10),
+    "furnished": (0, 1),
+    "age_years": (0, 80),
+}
+
+
+def validate_appraisal_input(record: dict) -> list[str]:
+    """Return a list of problems; empty means valid. Sector is validated
+    against the sectors the deployed model actually knows."""
+    problems = []
+    if record.get("sector") not in MODEL["sectors"]:
+        problems.append(f"unknown sector '{record.get('sector')}'")
+    for field, (lo, hi) in APPRAISAL_RANGES.items():
+        value = record.get(field)
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            problems.append(f"{field} must be a number, got {value!r}")
+        elif not lo <= value <= hi:
+            problems.append(f"{field}={value} outside sane range [{lo}, {hi}]")
+    return problems
+
+
+def predict_price(record: dict) -> float:
+    """Reproduce the sklearn pipeline from the exported weights: sector
+    one-hot offset + standardized-numeric contributions + intercept."""
+    sectors = MODEL["sectors"]
+    idx = sectors.index(record["sector"])
+    price = MODEL["intercept"] + MODEL["coef"][idx]
+    for i, name in enumerate(NUMERIC_FEATURES):
+        scaled = (record[name] - MODEL["scaler_mean"][i]) / MODEL["scaler_scale"][i]
+        price += MODEL["coef"][len(sectors) + i] * scaled
+    return price
+
 
 app = FastAPI(
     title="Tasador SD API",
@@ -88,15 +126,15 @@ def create_appraisal(request: AppraisalRequest) -> dict:
     if problems:
         raise HTTPException(status_code=422, detail=problems)
 
-    estimate = predict_from_params(model_params, record)
+    estimate = predict_price(record)
     if estimate <= 0:
         raise HTTPException(
             status_code=422,
             detail=["combination outside the model's reliable range"],
         )
 
-    rmse = model_params["metrics"]["rmse"]
-    sector_avg = model_params["avg_price_by_sector"][record["sector"]]
+    rmse = MODEL["metrics"]["rmse"]
+    sector_avg = MODEL["avg_price_by_sector"][record["sector"]]
     return {
         "estimate": round(estimate, 2),
         "range_low": round(max(estimate - rmse, 0.0), 2),
@@ -111,4 +149,4 @@ def create_appraisal(request: AppraisalRequest) -> dict:
 
 @app.get("/v1/model/params")
 def get_model_params() -> dict:
-    return {"version": MODEL_VERSION, "params": model_params}
+    return {"version": MODEL_VERSION, "params": MODEL}
