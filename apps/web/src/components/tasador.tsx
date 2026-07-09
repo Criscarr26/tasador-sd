@@ -146,46 +146,31 @@ export function Tasador() {
                   ))}
                 </select>
               </div>
-              <div className="field-row">
-                <div className="field">
-                  <label htmlFor="area">Área (m²)</label>
-                  <input id="area" type="number" min={20} max={1000} value={area}
-                    onChange={(e) => setArea(e.target.value)} required />
-                </div>
-                <div className="field">
-                  <label htmlFor="age">Antigüedad (años)</label>
-                  <input id="age" type="number" min={0} max={80} value={age}
-                    onChange={(e) => setAge(e.target.value)} required />
-                </div>
+
+              <Slider id="area" label="Área" value={area} onChange={setArea}
+                min={20} max={1000} step={5} unit="m²" hint="Superficie construida" />
+              <Slider id="age" label="Antigüedad" value={age} onChange={setAge}
+                min={0} max={80} step={1} unit="años" hint="0 = a estrenar" />
+
+              <div className="stepper-row">
+                <Stepper label="Habitaciones" value={bedrooms} onChange={setBedrooms} min={0} max={10} />
+                <Stepper label="Baños" value={bathrooms} onChange={setBathrooms} min={1} max={10} />
+                <Stepper label="Parqueos" value={parking} onChange={setParking} min={0} max={10} />
               </div>
-              <div className="field-row">
-                <div className="field">
-                  <label htmlFor="bedrooms">Habitaciones</label>
-                  <input id="bedrooms" type="number" min={0} max={10} value={bedrooms}
-                    onChange={(e) => setBedrooms(e.target.value)} required />
-                </div>
-                <div className="field">
-                  <label htmlFor="bathrooms">Baños</label>
-                  <input id="bathrooms" type="number" min={1} max={10} value={bathrooms}
-                    onChange={(e) => setBathrooms(e.target.value)} required />
-                </div>
-              </div>
-              <div className="field-row">
-                <div className="field">
-                  <label htmlFor="parking">Parqueos</label>
-                  <input id="parking" type="number" min={0} max={10} value={parking}
-                    onChange={(e) => setParking(e.target.value)} required />
-                </div>
-                <div className="field field-check" style={{ alignSelf: 'end' }}>
-                  <input id="furnished" type="checkbox" checked={furnished}
-                    onChange={(e) => setFurnished(e.target.checked)} />
-                  <label htmlFor="furnished">Amueblado</label>
-                </div>
-              </div>
+
+              <button
+                type="button"
+                className={`toggle-chip ${furnished ? 'on' : ''}`}
+                role="switch"
+                aria-checked={furnished}
+                onClick={() => setFurnished(!furnished)}>
+                <span className="toggle-dot" />
+                Amueblado
+              </button>
 
               {error && <div className="error-banner">{error}</div>}
 
-              <button className="btn-primary" type="submit" disabled={busy || !model}>
+              <button className="btn-primary btn-cta" type="submit" disabled={busy || !model}>
                 {busy ? 'Tasando…' : 'Tasar propiedad'}
               </button>
             </>
@@ -257,6 +242,86 @@ export function Tasador() {
           </div>
         </section>
       )}
+
+      <section className="container">
+        <details className="collapsible">
+          <summary>¿Cómo se calcula esta estimación?</summary>
+          <div className="collapsible-body">
+            <p>
+              La estimación usa un modelo de <b>regresión lineal</b> entrenado con datos del
+              mercado de alquileres de Santo Domingo, calibrado por sector. A partir del sector,
+              el área, las habitaciones, los baños, los parqueos, si está amueblado y la
+              antigüedad, predice el alquiler mensual y muestra un rango de confianza.
+            </p>
+            <p>
+              {model
+                ? `Precisión actual (R²): ${Math.round(model.metrics.r2 * 100)}% · error medio: ${formatDOP(model.metrics.mae)}. `
+                : ''}
+              Es una estimación orientativa, no una tasación oficial. La misma cuenta y el mismo
+              historial funcionan en la web y en la app móvil.
+            </p>
+          </div>
+        </details>
+      </section>
     </>
+  );
+}
+
+function Slider({
+  id, label, value, onChange, min, max, step, unit, hint,
+}: {
+  id: string; label: string; value: string; onChange: (v: string) => void;
+  min: number; max: number; step: number; unit?: string; hint?: string;
+}) {
+  const v = Number(value);
+  const pct = ((v - min) / (max - min)) * 100;
+  return (
+    <div className="field">
+      <div className="field-head">
+        <label htmlFor={id}>{label}</label>
+        <span className="field-value">
+          {value}
+          {unit ? ` ${unit}` : ''}
+        </span>
+      </div>
+      <input
+        id={id}
+        className="slider"
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          background: `linear-gradient(to right, var(--accent) ${pct}%, var(--card-2) ${pct}%)`,
+        }}
+      />
+      {hint && <span className="field-hint">{hint}</span>}
+    </div>
+  );
+}
+
+function Stepper({
+  label, value, onChange, min, max,
+}: {
+  label: string; value: string; onChange: (v: string) => void; min: number; max: number;
+}) {
+  const v = Number(value);
+  return (
+    <div className="field stepper-field">
+      <label>{label}</label>
+      <div className="stepper">
+        <button type="button" aria-label={`Menos ${label}`}
+          onClick={() => onChange(String(Math.max(min, v - 1)))}>
+          −
+        </button>
+        <span className="stepper-value">{value}</span>
+        <button type="button" aria-label={`Más ${label}`}
+          onClick={() => onChange(String(Math.min(max, v + 1)))}>
+          +
+        </button>
+      </div>
+    </div>
   );
 }
