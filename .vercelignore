@@ -1,0 +1,13 @@
+# This Vercel project (repo root) deploys only the serverless API.
+# Exclude everything the api/index.py function does not need.
+apps/web
+apps/api
+agents
+docs
+.github
+supabase
+ml/training/data
+ml/training/reports
+*.md
+Dockerfile
+.dockerignore

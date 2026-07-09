@@ -1,0 +1,5 @@
+# Serverless API (Vercel Python runtime) - deliberately tiny: no
+# scikit-learn/pandas/joblib. Prediction uses the exported weights via the
+# local tasador-core package (pure Python).
+fastapi
+./packages/core_py
