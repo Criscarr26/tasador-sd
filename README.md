@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/Criscarr26/tasador-sd/actions/workflows/ci.yml/badge.svg)](https://github.com/Criscarr26/tasador-sd/actions/workflows/ci.yml)
 
+**Live demo:** [tasadorsd.vercel.app](https://tasadorsd.vercel.app) · **API:** [tasador-sd.vercel.app/health](https://tasador-sd.vercel.app/health)
+
 Rental price appraisal platform for Santo Domingo, Dominican Republic.
 One machine-learning model, one domain contract, three synchronized
 clients: a commercial web app, a mobile app and a public demo — plus an
