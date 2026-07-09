@@ -1,6 +1,7 @@
-# This Vercel project (repo root) deploys only the serverless API.
-# Exclude everything the api/index.py function does not need.
-apps/web
+# NOTE: Vercel applies this repo-root .vercelignore to BOTH projects
+# built from this repo (the serverless API at the root, and the web at
+# apps/web). So it must NOT exclude apps/web -- doing so deletes the web
+# project's own source. Everything listed here is unused by both builds.
 apps/api
 agents
 docs
@@ -10,6 +11,5 @@ packages
 supabase
 ml/training/data
 ml/training/reports
-*.md
 Dockerfile
 .dockerignore
