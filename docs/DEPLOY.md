@@ -19,32 +19,40 @@ The project already runs on a Supabase instance. To bring a fresh one
 Also disable **Authentication > Sign In / Up > Email > Confirm email**
 for frictionless demo signups, or leave it on for real deployments.
 
-## 2. API (Hugging Face Spaces, free)
+## 2. API (Vercel serverless, free, no credit card)
 
-1. Create a Space at huggingface.co > New Space > SDK: **Docker**.
-2. Push this repository to the Space (or upload `Dockerfile`,
-   `packages/core_py`, `apps/api` and `ml/training/models`).
-3. The `Dockerfile` at the repo root serves the API on port 7860.
-4. Set the CORS allowlist to your web origins (Space settings > Variables):
-   `ALLOWED_ORIGINS=https://YOUR-WEB.vercel.app`
-   (without it, only http://localhost:3000 may call the API from a browser).
-5. Optional: tune `RATE_LIMIT_PER_MINUTE` (default 60 requests/IP/min; 0
-   disables). The limit is per instance — see the audit for the
-   Redis-backed version needed once the API scales horizontally.
-6. Verify: `https://YOUR-SPACE.hf.space/health` returns the model version.
+The API deploys as a Python serverless function (`api/index.py`). It
+predicts from the exported model weights (no scikit-learn/pandas), so it
+fits a free serverless tier and returns numbers identical to the
+container version (guaranteed by the parity contract test).
 
-Alternative: Render free web service with the same Dockerfile (set the
-port to 7860 or override the CMD).
+1. vercel.com > Add New > Project > import the `tasador-sd` GitHub repo.
+2. **Root Directory: leave as the repo root (`./`)**; Framework Preset:
+   **Other**. Vercel detects `api/index.py` + `requirements.txt` and
+   `vercel.json`.
+3. Environment variables (Project Settings > Environment Variables):
+   `ALLOWED_ORIGINS=https://YOUR-WEB.vercel.app` — the web origin(s) that
+   may call the API from a browser (add it after step 3 below). Without
+   it, only http://localhost:3000 is allowed.
+4. Deploy. Verify: `https://YOUR-API.vercel.app/health` returns the model
+   version, and `POST /v1/appraisals` returns an estimate.
+
+Self-host alternative (container): the repo also ships a `Dockerfile` and
+`apps/api` (the scikit-learn version on uvicorn, with per-IP rate
+limiting). Use it on any container host — build from the repo root and
+serve port 7860. Both backends serve the identical contract.
 
 ## 3. Web (Vercel, free)
 
-1. vercel.com > New Project > import the GitHub repo.
+1. vercel.com > Add New > Project > import the same repo again (a second
+   Vercel project).
 2. **Root Directory: `apps/web`** (critical in a monorepo).
 3. Environment variables:
    - `NEXT_PUBLIC_API_URL` = the API URL from step 2
    - `NEXT_PUBLIC_SUPABASE_URL` = your Supabase project URL
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the publishable key
-4. Deploy. Every push to `main` redeploys automatically.
+4. Deploy. Then set the API's `ALLOWED_ORIGINS` to this web URL and
+   redeploy the API. Every push to `main` redeploys automatically.
 
 ## 4. Mobile (Expo)
 
@@ -52,7 +60,7 @@ In the mobile repo's `.env`, point the app at the deployed API so its
 weights stay in sync with the served model:
 
 ```
-EXPO_PUBLIC_MODEL_API_URL=https://YOUR-SPACE.hf.space
+EXPO_PUBLIC_MODEL_API_URL=https://YOUR-API.vercel.app
 ```
 
 ## 5. Agent (optional, manual or scheduled)
