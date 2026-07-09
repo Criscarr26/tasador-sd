@@ -77,10 +77,17 @@ app = FastAPI(
     description="Rental price appraisals for Santo Domingo, DR.",
 )
 
-_DEFAULT_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
-ALLOWED_ORIGINS = [
-    o.strip() for o in os.environ.get("ALLOWED_ORIGINS", _DEFAULT_ORIGINS).split(",") if o.strip()
+# The production web app is always allowed, hardcoded so a project rename
+# or a missing env var can never break the browser. ALLOWED_ORIGINS (env)
+# adds any extra origins (preview URLs, a future custom domain, local dev).
+_PRODUCTION_WEB = [
+    "https://tasadorsd.vercel.app",
+    "https://tasador-sd-xlo2.vercel.app",
 ]
+_env_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+ALLOWED_ORIGINS = list(
+    dict.fromkeys(_PRODUCTION_WEB + [o.strip() for o in _env_origins.split(",") if o.strip()])
+)
 
 app.add_middleware(
     CORSMiddleware,
