@@ -338,6 +338,194 @@ a {
   background: rgba(56, 189, 248, 0.12);
 }
 
+/* ---------- Sliders (tip: sliders for numeric ranges) ---------- */
+.field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.field-head label {
+  margin: 0;
+}
+.field-value {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+.field-hint {
+  display: block;
+  color: var(--muted);
+  font-size: 0.76rem;
+  margin-top: 0.35rem;
+}
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--card-2);
+  outline: none;
+  cursor: pointer;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--bg-raised);
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.55);
+  cursor: pointer;
+}
+.slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--bg-raised);
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.55);
+  cursor: pointer;
+}
+.slider:focus-visible {
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+}
+
+/* ---------- Steppers ---------- */
+.stepper-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.7rem;
+}
+.stepper-field label {
+  display: block;
+  text-align: center;
+  margin-bottom: 0.4rem;
+}
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.25rem;
+}
+.stepper button {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 9px;
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--accent);
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+.stepper button:hover {
+  background: rgba(56, 189, 248, 0.28);
+  color: #fff;
+}
+.stepper-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Toggle chip (consistent accent selection) ---------- */
+.toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  margin-top: 1rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.toggle-chip .toggle-dot {
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--border);
+  position: relative;
+  transition: background 0.15s ease;
+  flex: none;
+}
+.toggle-chip .toggle-dot::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.16s ease;
+}
+.toggle-chip.on {
+  color: var(--text);
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.1);
+}
+.toggle-chip.on .toggle-dot {
+  background: var(--accent);
+}
+.toggle-chip.on .toggle-dot::after {
+  transform: translateX(14px);
+}
+
+/* ---------- Collapsible (tip: read more for long text) ---------- */
+.collapsible {
+  background: var(--card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 0 1.4rem;
+  margin-bottom: 3rem;
+}
+.collapsible > summary {
+  list-style: none;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--text);
+  padding: 1.1rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+.collapsible > summary::after {
+  content: '+';
+  color: var(--accent);
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+.collapsible[open] > summary::after {
+  content: '−';
+}
+.collapsible-body {
+  padding-bottom: 1.2rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+.collapsible-body p + p {
+  margin-top: 0.7rem;
+}
+
 /* ---------- Result ---------- */
 .result-label {
   font-size: 0.74rem;
@@ -616,6 +804,16 @@ a {
   color: var(--accent);
   font-weight: 700;
   margin-top: 0.4rem;
+}
+
+/* ---------- CTA near thumb on mobile (tip) ---------- */
+@media (max-width: 600px) {
+  .btn-cta {
+    position: sticky;
+    bottom: 12px;
+    z-index: 5;
+    box-shadow: 0 10px 30px rgba(2, 6, 23, 0.65), 0 10px 26px rgba(56, 189, 248, 0.4);
+  }
 }
 
 /* ---------- Footer ---------- */
