@@ -74,7 +74,7 @@ RULES:
   Centro > Ensanche Naco" -> sector "Ensanche Naco"); round half
   bathrooms down (1.5 banos -> 1).
 - Navigate efficiently: start at the seed URLs, open listing detail
-  links (paths like /apartamentos-alquiler-SECTOR/ID/), and use each
+  links (paths like /apartamentos-SECTOR/ID/), and use each
   page's "Anuncios Similares" links to keep exploring. Prefer links
   whose sector slug matches the allowed sectors. Never fetch the same
   URL twice; never fetch search pages (/buscar/) -- they are blocked.
@@ -174,10 +174,13 @@ def prune_old_pages(messages: list) -> None:
                 item["content"] = json.dumps({"note": "page content cleared to save tokens"})
 
 
-def run_agent(client, model, seeds, target, max_fetches, max_turns, store, fetcher):
+def run_agent(client, model, seeds, target, max_fetches, max_turns, store, fetcher, seed_note=""):
     task = (
         f"Target: save {target} complete rental listings. "
-        f"Fetch budget: {max_fetches} pages.\nSeed URLs:\n" + "\n".join(seeds)
+        f"Fetch budget: {max_fetches} pages.\n"
+        + (seed_note + "\n" if seed_note else "")
+        + "Seed URLs:\n"
+        + "\n".join(seeds)
     )
     messages = [{"role": "user", "content": task}]
     tokens_in = tokens_out = 0
@@ -274,6 +277,17 @@ class ScriptedClient:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--site", choices=sorted(SEED_URLS), default="supercasas")
+    parser.add_argument(
+        "--from-queue",
+        type=int,
+        default=0,
+        metavar="N",
+        help=(
+            "pull N pending URLs from the Supabase listing_queue as direct "
+            "seeds (fill the queue first with discovery.py; requires "
+            "SUPABASE_URL/SUPABASE_SERVICE_KEY in .env)"
+        ),
+    )
     parser.add_argument("--target", type=int, default=20, help="listings to collect")
     parser.add_argument("--max-fetches", type=int, default=25, help="hard cap on page fetches")
     parser.add_argument("--max-turns", type=int, default=60, help="hard cap on agent turns")
@@ -289,6 +303,9 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.dry_run:
+        if args.from_queue:
+            print("--from-queue needs the network; it cannot be combined with --dry-run.")
+            return 1
         out_path = Path(args.out) if args.out else BASE_DIR / "data" / "rentals_dry_run.csv"
         if out_path.exists():
             out_path.unlink()  # dry runs are idempotent
@@ -310,6 +327,31 @@ def main() -> int:
         out_path = Path(args.out) if args.out else BASE_DIR / "data" / "rentals_real.csv"
         seeds = SEED_URLS[args.site]
 
+    queue = None
+    queue_items: list[dict] = []
+    if args.from_queue:
+        if args.sink != "supabase":
+            # The queue is shared state in Supabase: consuming it while
+            # writing only to the local CSV would mark URLs 'done' that
+            # never reached the listings table.
+            print("--from-queue requires --sink supabase (the queue feeds that table).")
+            return 1
+        supabase_url = os.environ.get("SUPABASE_URL", "")
+        service_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+        if not supabase_url or not service_key:
+            print(
+                "--from-queue needs SUPABASE_URL / SUPABASE_SERVICE_KEY in .env\n"
+                "(Supabase dashboard > Project Settings > API keys > service_role)."
+            )
+            return 1
+        queue = tools.QueueClient(supabase_url, service_key)
+        queue_items = queue.pull_pending(args.from_queue)
+        if not queue_items:
+            print("The listing_queue has no pending URLs. Run discovery.py first.")
+            return 0
+        seeds = [item["url"] for item in queue_items]
+        print(f"Seeds: {len(seeds)} pending URLs pulled from the listing_queue.\n")
+
     sink = None
     if args.sink == "supabase":
         if args.dry_run:
@@ -330,13 +372,52 @@ def main() -> int:
     store = tools.ListingStore(out_path, sink=sink)
     fetcher = tools.FetchSession()
 
+    seed_note = ""
+    if queue:
+        seed_note = (
+            "Every seed URL is a listing detail page: fetch each seed "
+            "directly and extract it -- no navigation is needed. Use "
+            "each seed URL verbatim as the source_url when saving. If a "
+            "seed is not an eligible rental (sale, USD-only, missing "
+            "fields), move on to the next seed. Saving a listing that "
+            "was already collected before is fine: it refreshes its "
+            "market data."
+        )
+
     summary, tokens_in, tokens_out = run_agent(
-        client, args.model, seeds, args.target, args.max_fetches, args.max_turns, store, fetcher
+        client, args.model, seeds, args.target, args.max_fetches, args.max_turns,
+        store, fetcher, seed_note=seed_note,
     )
+
+    queue_report = ""
+    if queue:
+        # Compare without the trailing slash: the model occasionally
+        # normalizes the URL it passes to fetch_url / save_listing.
+        canon = lambda url: url.rstrip("/")  # noqa: E731
+        processed = {canon(u) for u in store.session_urls}
+        fetched = {canon(u): result for u, result in fetcher.results.items()}
+        outcomes = {"done": 0, "skipped": 0, "failed": 0, "pending": 0}
+        update_errors = 0
+        for item in queue_items:
+            key = canon(item["url"])
+            try:
+                status = queue.record_outcome(item, fetched.get(key), processed=key in processed)
+            except tools.requests.RequestException as exc:
+                # Never lose the run report over a queue bookkeeping
+                # error: the URL simply stays pending for the next run.
+                update_errors += 1
+                print(f"  [queue] update failed for {item['url']}: {exc}")
+                continue
+            outcomes[status] += 1
+        queue_report = ", ".join(f"{count} {name}" for name, count in outcomes.items() if count)
+        if update_errors:
+            queue_report += f" ({update_errors} updates failed)"
 
     cost = tokens_in / 1e6 * PRICE_PER_MTOK["input"] + tokens_out / 1e6 * PRICE_PER_MTOK["output"]
     print("\n----- RUN REPORT -----")
     print(f"Listings saved:     {store.saved}")
+    if store.refreshed:
+        print(f"Sightings refreshed:{store.refreshed}")
     print(f"Listings rejected:  {store.rejected}")
     print(f"Pages fetched:      {fetcher.fetch_count}")
     print(f"Tokens in/out:      {tokens_in:,} / {tokens_out:,}")
@@ -344,6 +425,8 @@ def main() -> int:
     print(f"Output CSV:         {out_path}")
     if sink:
         print(f"Pushed to Supabase: {sink.pushed} (failed: {sink.failed})")
+    if queue_report:
+        print(f"Queue outcomes:     {queue_report}")
     if summary:
         print(f"Agent summary:      {summary}")
     return 0

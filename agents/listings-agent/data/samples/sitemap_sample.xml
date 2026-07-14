@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Trimmed copy of https://www.supercasas.com/sitemap.xml (2026-07-12):
+     real URL shapes for discovery tests and offline runs. XML comments
+     cannot contain double hyphens, so the flags read "stats" and
+     "sitemap-file" here; both take the usual long-option prefix:
+     python discovery.py [stats] [sitemap-file data/samples/sitemap_sample.xml] -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://www.supercasas.com/apartamentos-evaristo-morales/1383435/</loc></url>
+  <url><loc>https://www.supercasas.com/apartamentos-ensanche-naco/1383439/</loc></url>
+  <url><loc>https://www.supercasas.com/apartamentos-piantini/1390001/</loc></url>
+  <url><loc>https://www.supercasas.com/apartamentos-bella-vista/1390002/</loc></url>
+  <url><loc>https://www.supercasas.com/apartamentos-serralles/1390003/</loc></url>
+  <url><loc>https://www.supercasas.com/apartamentos-gazcue/1390004/</loc></url>
+  <url><loc>https://www.supercasas.com/apartamentos-bella-vista-sur/1390005/</loc></url>
+  <url><loc>https://www.supercasas.com/apartamentos-arroyo-hondo-viejo/1390006/</loc></url>
+  <url><loc>https://www.supercasas.com/casas-bella-vista/1390007/</loc></url>
+  <url><loc>https://www.supercasas.com/penthouse-piantini/1390008/</loc></url>
+  <url><loc>https://www.supercasas.com/villas-metro-country-club,-juan-dolio/1383545/</loc></url>
+  <url><loc>https://www.supercasas.com/propiedades/remax-inmobiliaria</loc></url>
+  <url><loc>https://www.supercasas.com/directorio/inmobiliarias/0</loc></url>
+</urlset>

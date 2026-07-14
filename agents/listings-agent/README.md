@@ -61,6 +61,11 @@ Design decisions worth reading in the code:
   never touches them; the gate refuses if it tries). Corotos was
   evaluated and dropped for v1: its result pages render client-side,
   so plain HTTP sees no listings (see Roadmap).
+- **Discovery uses the sitemap, not search pages.** The only paginated
+  listing index on SuperCasas is `/buscar/`, which robots.txt
+  disallows — so `discovery.py` reads the sitemap the site itself
+  advertises in robots.txt (~17.5k detail URLs, all on allowed paths)
+  and never crawls an index page at all.
 
 ## Data contract
 
@@ -106,6 +111,38 @@ Every run ends with a report: listings saved/rejected, pages fetched,
 tokens in/out and estimated cost. A typical 20-listing run with the
 default model costs a few cents.
 
+## Discovery at scale: sitemap + queue
+
+Navigating from the homepage finds listings, but it spends fetch budget
+on hub pages and re-walks the same links every run. The scalable path
+(requires migration `0005_listing_history.sql` and Supabase credentials
+in `.env`):
+
+```
+python discovery.py --stats                # parse + filter the sitemap, write nothing
+python discovery.py                        # fill the listing_queue + sync active flags
+python discovery.py --requeue-days 7       # also re-queue old URLs -> price history
+python agent.py --from-queue 20 --sink supabase
+```
+
+`discovery.py` reads the SuperCasas sitemap (one fetch, no API cost),
+keeps apartment detail pages in the 10 sectors the model knows
+(~3.9k of ~18k URLs) and upserts them into the `listing_queue` table.
+`agent.py --from-queue N` then pulls N pending URLs as **direct seeds**
+— every fetch is a candidate listing, no navigation overhead — and
+records each outcome (`done` / `skipped` / `failed` with retry, or left
+`pending` when the budget ran out).
+
+Two market signals come out of this loop for free:
+
+- **Price history**: the Supabase sink upserts with merge semantics, so
+  a re-scraped listing whose price moved gets a new snapshot in
+  `listing_prices` (database trigger). A listing that sat at RD$60k and
+  drops to RD$48k is telling you what the ask was really worth.
+- **Active flags**: each discovery run refreshes `last_seen` on
+  listings still in the sitemap and flips `is_active` off on the ones
+  that left it — a weak label for "rented at (about) this price".
+
 ## Feeding the estimator
 
 ```
@@ -119,7 +156,12 @@ point of both projects.
 
 ## Roadmap
 
-- Corotos support through its listings sitemap or a headless browser
-  runtime (its search results are client-side rendered).
-- Incremental collection runs on a schedule, deduplicated by URL.
-- Price-drift report: synthetic model vs. real-data model metrics.
+- ~~Incremental collection runs on a schedule, deduplicated by URL~~ —
+  done: sitemap discovery + `listing_queue` + `--from-queue` (schedule
+  the two commands with GitHub Actions cron or Windows Task Scheduler).
+- Corotos support: its robots.txt allows crawling and it publishes
+  paginated listing sitemaps (`/sitemaps/listings.xml?page=N`), so
+  discovery is solved — but its detail pages render client-side, so
+  extraction needs a headless browser or its JSON endpoints.
+- Price-drift report: synthetic model vs. real-data model metrics, now
+  extendable with the `listing_prices` trajectories.
