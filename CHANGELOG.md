@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.2.0 — 2026-07-13
+
+Market history + automation layer: the collector becomes a flywheel
+(sitemap discovery, price trajectories, rented-signal flags) and n8n
+turns the data into products (bargain alerts, ingest monitoring,
+weekly market summaries).
+
+### Added
+- `supabase/migrations/0005_listing_history.sql`: `listing_prices`
+  (price trajectory per listing, snapshotted by trigger on every price
+  change), `first_seen`/`last_seen`/`is_active` sighting metadata on
+  `listings`, and the `listing_queue` table that decouples discovery
+  from collection.
+- `agents/listings-agent/discovery.py`: sitemap-based discovery.
+  SuperCasas disallows its paginated search (`/buscar/`) in robots.txt,
+  so discovery reads the sitemap the site advertises there (~17.5k
+  URLs), keeps apartment detail pages in the 10 known sectors (~3.9k)
+  and feeds the queue. Each sync also flips `is_active` off for
+  listings that left the sitemap — a weak "rented" label.
+- `agent.py --from-queue N`: pulls pending queue URLs as direct seeds
+  (no navigation overhead) and records per-URL outcomes with retry
+  (3 attempts) for failed fetches.
+- `n8n/`: importable workflows — hourly bargain alerts to Telegram
+  (asking price < 85% of the model estimate), daily dead-pipeline
+  monitor, and a weekly per-sector market summary (the seed of the
+  agency price report) — plus a README covering free self-hosted
+  setup, credentials and the n8n MCP server for Claude Code.
+- `tests/test_discovery.py`: pins the discovery filter (the legal
+  boundary of collection) with real URL shapes from the July 2026
+  sitemap survey.
+
+### Changed
+- The Supabase sink now upserts with merge semantics: re-sighted
+  listings refresh `last_seen`/`is_active`, and price changes create
+  `listing_prices` snapshots via the migration's trigger. Re-saving an
+  already-collected listing is no longer an error — it refreshes its
+  market data. Apply migration 0005 before the next `--sink supabase`
+  run.
+
 ## 0.1.0 — 2026-07-08
 
 First unified release: three standalone projects (Streamlit estimator,

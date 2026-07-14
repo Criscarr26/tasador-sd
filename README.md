@@ -34,8 +34,13 @@ flowchart TB
     end
 
     subgraph Data["Data flywheel"]
-        AGENT["Listings agent\nagents/listings-agent"]
+        AGENT["Listings agent\nagents/listings-agent\n(sitemap discovery + queue)"]
         TRAIN["Training\nml/training"]
+    end
+
+    subgraph Autom["Product automation — n8n/"]
+        N8N["n8n workflows\nbargain alerts · ingest monitor\nweekly market summary"]
+        TG["Telegram"]
     end
 
     PKG["tasador-core\npackages/core_py\n(single domain contract)"]
@@ -43,8 +48,11 @@ flowchart TB
     WEB --> APPR
     MOB -.->|weight sync + offline fallback| MODP
     WEB & MOB --> AUTH --> DB
-    AGENT -->|validated listings| DB
+    AGENT -->|validated listings + price history| DB
     TRAIN -->|reads listings, publishes artifacts| MODP
+    DB -->|reads listings| N8N
+    N8N -->|appraises via public API| APPR
+    N8N --> TG
     PKG -.-> Core & AGENT & TRAIN
 ```
 
@@ -63,6 +71,7 @@ apps/api/             FastAPI inference core (single source of inference)
 apps/web/             commercial web app (Next.js 16, shared design tokens)
 agents/listings-agent/ autonomous data-collection agent (Anthropic tool use)
 supabase/migrations/  formal database history (RLS, listings, plans/usage)
+n8n/                  automation layer: bargain alerts, ingest monitor, weekly summary
 docs/                 deployment guide and assets
 ```
 

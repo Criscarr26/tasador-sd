@@ -1,0 +1,116 @@
+{
+  "name": "Tasador SD — Monitor de ingesta",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "monitor-schedule",
+      "name": "Every day at 8am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://rprhpgopebqgpeodixpy.supabase.co/rest/v1/listings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id"
+            },
+            {
+              "name": "first_seen",
+              "value": "=gte.{{ $now.minus({ days: 7 }).toISO() }}"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "monitor-supabase",
+      "name": "Any listing in last 7 days?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// A collector that died three weeks ago and nobody noticed is worse\n// than no collector. If not a single listing entered in 7 days, the\n// pipeline is down: raise exactly one alert item, otherwise nothing.\nconst alive = $input.all().some(item => item.json && item.json.id);\nif (alive) return [];\nreturn [{ json: { alerta: 'Sin listados nuevos en 7 días' } }];"
+      },
+      "id": "monitor-code",
+      "name": "Dead pipeline?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_YOUR_CHAT_ID",
+        "text": "=⚠️ Tasador SD: la ingesta de listados lleva 7 días sin datos nuevos.\nRevisa: 1) ¿corrió discovery.py esta semana? 2) ¿corrió agent.py --from-queue? 3) ¿cambió el sitemap o el HTML de SuperCasas?",
+        "additionalFields": {}
+      },
+      "id": "monitor-telegram",
+      "name": "Send Telegram alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [660, 0]
+    }
+  ],
+  "connections": {
+    "Every day at 8am": {
+      "main": [
+        [
+          {
+            "node": "Any listing in last 7 days?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any listing in last 7 days?": {
+      "main": [
+        [
+          {
+            "node": "Dead pipeline?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dead pipeline?": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
