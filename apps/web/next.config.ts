@@ -1,29 +1,9 @@
 import type { NextConfig } from "next";
 
-// Origins the browser may talk to (Supabase auth/data + the model API).
-// Read from env at build time so production tightens automatically.
-const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://*.supabase.co";
-const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-// Next.js dev mode needs eval for fast refresh; production does not.
-const isDev = process.env.NODE_ENV === "development";
-
-const csp = [
-  "default-src 'self'",
-  // Next.js injects inline bootstrap scripts, hence 'unsafe-inline'.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
-  `connect-src 'self' ${supabaseOrigin} ${apiOrigin}`,
-  "font-src 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-].join("; ");
-
+// The Content-Security-Policy is set per-request in src/middleware.ts so it
+// can carry a unique nonce (that lets script-src drop 'unsafe-inline').
+// Only the static, non-nonce headers live here.
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

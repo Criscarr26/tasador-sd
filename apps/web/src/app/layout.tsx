@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 
 import { Header } from '@/components/header';
 
@@ -10,11 +11,16 @@ export const metadata: Metadata = {
     'Estime el precio mensual de alquiler de una propiedad en Santo Domingo en segundos, con un modelo de machine learning calibrado por sector.',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Reading the request headers opts every route into dynamic rendering,
+  // which is what lets Next.js tag its inline scripts with the per-request
+  // CSP nonce set in middleware. Without this the pages prerender static
+  // (no nonce) and the nonce CSP would block hydration.
+  await headers();
   return (
     <html lang="es">
       <body>
