@@ -71,10 +71,16 @@ def predict_price(record: dict) -> float:
     return price
 
 
+# Quick win: the interactive docs and OpenAPI schema are OFF in production
+# (they ease API enumeration). Set ENABLE_DOCS=1 in dev to turn them back on.
+_docs_enabled = os.environ.get("ENABLE_DOCS") == "1"
 app = FastAPI(
     title="Tasador SD API",
     version="0.1.0",
     description="Rental price appraisals for Santo Domingo, DR.",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
 )
 
 # The production web app is always allowed, hardcoded so a project rename
