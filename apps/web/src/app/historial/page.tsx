@@ -39,8 +39,23 @@ function AuthCard() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  // Enforce the stronger minimum only on sign-up; sign-in must not lock
+  // out accounts created under the old policy.
+  function validate(isSignup: boolean): boolean {
+    if (!email.trim().includes('@')) {
+      setMessage('Escribe un correo válido.');
+      return false;
+    }
+    if (isSignup && password.length < 8) {
+      setMessage('La contraseña debe tener al menos 8 caracteres.');
+      return false;
+    }
+    return true;
+  }
+
   async function signIn(event: FormEvent) {
     event.preventDefault();
+    if (!validate(false)) return;
     setBusy(true);
     setMessage(null);
     const { error } = await supabase!.auth.signInWithPassword({ email: email.trim(), password });
@@ -55,6 +70,7 @@ function AuthCard() {
   }
 
   async function signUp() {
+    if (!validate(true)) return;
     setBusy(true);
     setMessage(null);
     const { data, error } = await supabase!.auth.signUp({ email: email.trim(), password });
@@ -80,7 +96,7 @@ function AuthCard() {
         </div>
         <div className="field">
           <label htmlFor="password">Contraseña</label>
-          <input id="password" type="password" minLength={6} value={password}
+          <input id="password" type="password" minLength={8} value={password}
             onChange={(e) => setPassword(e.target.value)} required />
         </div>
         {message && <div className="error-banner">{message}</div>}
