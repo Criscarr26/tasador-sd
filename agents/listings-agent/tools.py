@@ -9,6 +9,9 @@ model (HTML boilerplate is token cost, not signal).
 from __future__ import annotations
 
 import csv
+import ipaddress
+import os
+import socket
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,6 +41,37 @@ MAX_PAGE_CHARS = 18_000  # keep per-page token cost bounded
 
 BASE_DIR = Path(__file__).resolve().parent
 SAMPLES_DIR = BASE_DIR / "data" / "samples"
+
+# SSRF guard: the agent decides which URLs to visit from scraped page
+# content, so a malicious page could try to make it fetch internal
+# services (cloud metadata at 169.254.169.254, localhost, private nets).
+# Only these host suffixes are fetchable, and only if they resolve to a
+# public IP. Override via AGENT_ALLOWED_HOSTS (comma-separated) when
+# adding a new source site.
+ALLOWED_HOST_SUFFIXES = tuple(
+    h.strip().lower()
+    for h in os.environ.get("AGENT_ALLOWED_HOSTS", "supercasas.com").split(",")
+    if h.strip()
+)
+
+
+def _url_allowed(url: str) -> str | None:
+    """Return an error string if the URL must NOT be fetched, else None."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return f"scheme not allowed: {parsed.scheme!r}"
+    host = (parsed.hostname or "").lower()
+    if not host or not any(host == s or host.endswith("." + s) for s in ALLOWED_HOST_SUFFIXES):
+        return f"host not in allowlist: {host!r}"
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as exc:
+        return f"cannot resolve {host!r}: {exc}"
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            return f"{host!r} resolves to a non-public IP ({ip})"
+    return None
 
 
 class FetchSession:
@@ -74,6 +108,11 @@ class FetchSession:
             if not path.exists():
                 return {"ok": False, "error": f"sample fixture not found: {path.name}"}
             return {"ok": True, "url": url, "content": _clean_html(path.read_text(encoding="utf-8"))}
+
+        blocked = _url_allowed(url)
+        if blocked:
+            self.results[url] = blocked
+            return {"ok": False, "error": blocked}
 
         if not self._robots_for(url).can_fetch(USER_AGENT, url):
             self.results[url] = f"robots.txt disallows fetching {url}"
