@@ -1,0 +1,122 @@
+{
+  "name": "Tasador SD — Alerta de gangas",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "gangas-schedule",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://rprhpgopebqgpeodixpy.supabase.co/rest/v1/listings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "sector,area_m2,bedrooms,bathrooms,parking_spots,furnished,age_years,price_dop,source_url,first_seen"
+            },
+            {
+              "name": "is_active",
+              "value": "eq.true"
+            },
+            {
+              "name": "first_seen",
+              "value": "=gte.{{ $now.minus({ hours: 24 }).toISO() }}"
+            },
+            {
+              "name": "order",
+              "value": "first_seen.desc"
+            },
+            {
+              "name": "limit",
+              "value": "200"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "gangas-supabase",
+      "name": "New listings (Supabase)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Appraise every fresh listing with the public API and let only the\n// bargains through: asking price below 85% of the model's estimate.\n// A one-off appraisal gets consulted once; a bargain feed gets paid\n// for monthly -- this node is the product.\nconst UMBRAL = 0.85;\nconst API = 'https://tasador-sd.vercel.app/v1/appraisals';\n\nconst gangas = [];\nfor (const item of $input.all()) {\n  const l = item.json;\n  if (!l.sector) continue; // empty placeholder item\n  let r;\n  try {\n    r = await this.helpers.httpRequest({\n      method: 'POST',\n      url: API,\n      body: {\n        sector: l.sector,\n        area_m2: Number(l.area_m2),\n        bedrooms: Number(l.bedrooms),\n        bathrooms: Number(l.bathrooms),\n        parking_spots: Number(l.parking_spots),\n        furnished: l.furnished ? 1 : 0,\n        age_years: Number(l.age_years),\n      },\n      json: true,\n    });\n  } catch (error) {\n    continue; // 422 = outside the model's reliable range, not alertable\n  }\n  if (!r.estimate || Number(l.price_dop) >= r.estimate * UMBRAL) continue;\n  gangas.push({\n    json: {\n      ...l,\n      estimate: Math.round(r.estimate),\n      descuento_pct: Math.round((1 - Number(l.price_dop) / r.estimate) * 100),\n    },\n  });\n}\nreturn gangas;"
+      },
+      "id": "gangas-code",
+      "name": "Appraise and filter bargains",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_YOUR_CHAT_ID",
+        "text": "=🔥 Ganga en {{ $json.sector }}: RD${{ Number($json.price_dop).toLocaleString('es-DO') }}/mes — {{ $json.descuento_pct }}% por debajo de la estimación del modelo (RD${{ Number($json.estimate).toLocaleString('es-DO') }}).\n{{ $json.bedrooms }} hab · {{ $json.bathrooms }} baños · {{ $json.area_m2 }} m²\n{{ $json.source_url }}",
+        "additionalFields": {}
+      },
+      "id": "gangas-telegram",
+      "name": "Send Telegram alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [660, 0]
+    }
+  ],
+  "connections": {
+    "Every hour": {
+      "main": [
+        [
+          {
+            "node": "New listings (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New listings (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Appraise and filter bargains",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Appraise and filter bargains": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

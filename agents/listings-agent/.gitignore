@@ -7,9 +7,11 @@ __pycache__/
 .DS_Store
 
 # Local fixtures cached from real sites stay local; only the synthetic
-# listing.html fixture (used by --dry-run) is committed.
+# listing.html fixture (used by --dry-run) and the trimmed sitemap
+# fixture (used by tests/test_discovery.py) are committed.
 data/samples/*
 !data/samples/listing.html
+!data/samples/sitemap_sample.xml
 
 # Dry-run output is disposable.
 data/rentals_dry_run.csv

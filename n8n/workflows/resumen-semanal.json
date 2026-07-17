@@ -1,0 +1,117 @@
+{
+  "name": "Tasador SD — Resumen semanal de mercado",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [0],
+              "triggerAtHour": 19
+            }
+          ]
+        }
+      },
+      "id": "resumen-schedule",
+      "name": "Sundays at 7pm",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://rprhpgopebqgpeodixpy.supabase.co/rest/v1/listings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "sector,price_dop,first_seen"
+            },
+            {
+              "name": "is_active",
+              "value": "eq.true"
+            },
+            {
+              "name": "limit",
+              "value": "1000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "resumen-supabase",
+      "name": "Active listings (Supabase)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Aggregate the active market by sector. This message is the seed of\n// the monthly per-sector price report (the product for real-estate\n// agencies): same numbers, same query, nicer formatting later.\nconst rows = $input.all().map(item => item.json).filter(row => row.sector);\nconst since = Date.now() - 7 * 24 * 3600 * 1000;\n\nconst porSector = {};\nfor (const row of rows) {\n  const s = (porSector[row.sector] ??= { n: 0, suma: 0, min: Infinity, max: 0, nuevos: 0 });\n  const precio = Number(row.price_dop);\n  s.n += 1;\n  s.suma += precio;\n  s.min = Math.min(s.min, precio);\n  s.max = Math.max(s.max, precio);\n  if (new Date(row.first_seen).getTime() >= since) s.nuevos += 1;\n}\n\nconst fmt = (n) => 'RD$' + Math.round(n).toLocaleString('es-DO');\nconst lineas = Object.entries(porSector)\n  .sort((a, b) => b[1].n - a[1].n)\n  .map(([sector, s]) =>\n    `• ${sector}: ${s.n} activos (${s.nuevos} nuevos) · promedio ${fmt(s.suma / s.n)} · rango ${fmt(s.min)}–${fmt(s.max)}`\n  );\nconst nuevos = Object.values(porSector).reduce((acc, s) => acc + s.nuevos, 0);\n\nconst mensaje =\n  `📊 Mercado de alquileres SD — ${rows.length} listados activos, ${nuevos} nuevos esta semana.\\n\\n` +\n  (lineas.length ? lineas.join('\\n') : 'Sin datos todavía: corre discovery.py y agent.py --from-queue.');\nreturn [{ json: { mensaje } }];"
+      },
+      "id": "resumen-code",
+      "name": "Aggregate by sector",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_YOUR_CHAT_ID",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {}
+      },
+      "id": "resumen-telegram",
+      "name": "Send Telegram summary",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [660, 0]
+    }
+  ],
+  "connections": {
+    "Sundays at 7pm": {
+      "main": [
+        [
+          {
+            "node": "Active listings (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Active listings (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Aggregate by sector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate by sector": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
