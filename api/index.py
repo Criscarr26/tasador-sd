@@ -20,10 +20,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
+from collections import defaultdict, deque
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -101,6 +104,41 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
+
+
+# In-process rate limit per client IP (sliding 60s window), same policy as
+# the container API (apps/api/main.py). On Vercel this counter lives per
+# warm lambda instance -- not shared across concurrent instances -- so it
+# is a best-effort throttle against scripted abuse, not a hard guarantee.
+# 0 disables it.
+RATE_LIMIT_PER_MINUTE = int(os.environ.get("RATE_LIMIT_PER_MINUTE", "60"))
+_hits: dict[str, deque] = defaultdict(deque)
+
+
+@app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    limit = RATE_LIMIT_PER_MINUTE
+    if limit > 0:
+        now = time.monotonic()
+        # Behind a proxy (Vercel) request.client.host is the proxy, not the
+        # user; the real client is the first hop of X-Forwarded-For.
+        forwarded = request.headers.get("x-forwarded-for")
+        client_ip = (
+            forwarded.split(",")[0].strip()
+            if forwarded
+            else (request.client.host if request.client else "unknown")
+        )
+        window = _hits[client_ip]
+        while window and now - window[0] > 60:
+            window.popleft()
+        if len(window) >= limit:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": ["too many requests, try again in a minute"]},
+                headers={"Retry-After": "60"},
+            )
+        window.append(now)
+    return await call_next(request)
 
 
 @app.middleware("http")
