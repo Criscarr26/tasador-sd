@@ -29,7 +29,7 @@ Telegram                                    <- delivery
 
 1. **Migration 0005 applied** (`supabase/migrations/0005_listing_history.sql`)
    -- the workflows read `is_active` / `first_seen`, which it adds.
-2. **Some real listings collected** (`agents/listings-agent`, see its README).
+2. **Some real listings collected** (`services/listings-agent`, see its README).
 3. **Node.js 20.19-24.x** (already required by `apps/web`).
 
 ## Running n8n locally (free)
@@ -55,9 +55,9 @@ solves for the Python side).
 UI: **Workflows > ⋯ > Import from File** and pick each JSON, or:
 
 ```bash
-n8n import:workflow --input=n8n/workflows/gangas-telegram.json
-n8n import:workflow --input=n8n/workflows/monitor-ingesta.json
-n8n import:workflow --input=n8n/workflows/resumen-semanal.json
+n8n import:workflow --input=services/n8n/workflows/gangas-telegram.json
+n8n import:workflow --input=services/n8n/workflows/monitor-ingesta.json
+n8n import:workflow --input=services/n8n/workflows/resumen-semanal.json
 ```
 
 Then wire the two credentials (create each once, reuse everywhere):
