@@ -85,7 +85,14 @@ async def rate_limit(request: Request, call_next):
     limit = RATE_LIMIT_PER_MINUTE
     if limit > 0:
         now = time.monotonic()
-        client_ip = request.client.host if request.client else "unknown"
+        # Behind a proxy (Vercel) request.client.host is the proxy, not the
+        # user; the real client is the first hop of X-Forwarded-For.
+        forwarded = request.headers.get("x-forwarded-for")
+        client_ip = (
+            forwarded.split(",")[0].strip()
+            if forwarded
+            else (request.client.host if request.client else "unknown")
+        )
         window = _hits[client_ip]
         while window and now - window[0] > 60:
             window.popleft()
