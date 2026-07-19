@@ -138,6 +138,28 @@ a {
   font-family: inherit;
 }
 
+/* Narrow phones: brand + nav + session chip no longer fit in one row.
+   Drop the email (the button/link alone is enough context) and tighten
+   the nav so "Tasador"/"Historial" don't wrap or get clipped. */
+@media (max-width: 480px) {
+  .site-header .container {
+    gap: 0.5rem;
+  }
+  .brand-text {
+    display: none;
+  }
+  .nav {
+    gap: 0.1rem;
+  }
+  .nav a {
+    padding: 0.4rem 0.55rem;
+    font-size: 0.84rem;
+  }
+  .session-chip .email {
+    display: none;
+  }
+}
+
 /* ---------- Hero ---------- */
 .hero {
   text-align: center;
