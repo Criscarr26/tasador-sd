@@ -63,9 +63,9 @@ weights stay in sync with the served model:
 EXPO_PUBLIC_MODEL_API_URL=https://YOUR-API.vercel.app
 ```
 
-## 5. Agent (optional, manual or scheduled)
+## 5. Data-collection service (optional, manual or scheduled)
 
-With `0002` applied, set in `agents/listings-agent/.env`:
+With `0002` applied, set in `services/listings-agent/.env`:
 
 ```
 SUPABASE_URL=https://YOUR-PROJECT.supabase.co

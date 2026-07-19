@@ -1,4 +1,4 @@
-"""Guards the sitemap discovery filter (agents/listings-agent/discovery.py).
+"""Guards the sitemap discovery filter (services/listings-agent/discovery.py).
 
 The filter is the legal boundary of collection: it must only produce
 apartment DETAIL pages in sectors the model knows, and never anything
@@ -15,12 +15,12 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "agents" / "listings-agent"))
+sys.path.insert(0, str(ROOT / "services" / "listings-agent"))
 
 import discovery  # noqa: E402
 from tasador_core import schema  # noqa: E402
 
-FIXTURE = ROOT / "agents" / "listings-agent" / "data" / "samples" / "sitemap_sample.xml"
+FIXTURE = ROOT / "services" / "listings-agent" / "data" / "samples" / "sitemap_sample.xml"
 
 
 class TestSectorSlugs(unittest.TestCase):
