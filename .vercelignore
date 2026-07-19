@@ -3,7 +3,7 @@
 # apps/web). So it must NOT exclude apps/web -- doing so deletes the web
 # project's own source. Everything listed here is unused by both builds.
 apps/api
-agents
+services
 docs
 tests
 packages
