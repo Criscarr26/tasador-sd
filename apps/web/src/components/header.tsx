@@ -15,7 +15,7 @@ export function Header() {
       <div className="container">
         <Link href="/" className="brand">
           <span className="brand-dot" aria-hidden />
-          Tasador SD
+          <span className="brand-text">Tasador SD</span>
         </Link>
         <nav className="nav" aria-label="Principal">
           <Link href="/" className={pathname === '/' ? 'active' : ''}>
