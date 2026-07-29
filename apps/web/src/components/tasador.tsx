@@ -3,8 +3,11 @@
 import { FormEvent, useEffect, useState } from 'react';
 
 import { Appraisal, AppraisalInput, appraise, formatDOP, getModelInfo, ModelInfo } from '@/lib/api';
+import { SectorMap } from '@/components/sector-map';
 import { isCloudConfigured, supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/use-session';
+
+import 'leaflet/dist/leaflet.css';
 
 // Placeholder rows for the "comparables" panel of the design system. They are
 // rendered behind an explicit "Ejemplo" badge and are NOT market data: the
@@ -34,6 +37,7 @@ export function Tasador() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<(Appraisal & { input: AppraisalInput }) | null>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [fx, setFx] = useState<{ dopPerUsd: number; updated: string | null } | null>(null);
 
   useEffect(() => {
     getModelInfo()
@@ -42,6 +46,19 @@ export function Tasador() {
         if (!info.sectors.includes('Bella Vista')) setSector(info.sectors[0]);
       })
       .catch(() => setApiDown(true));
+  }, []);
+
+  // Reference USD rate. Same-origin route, cached server-side. If it is
+  // unavailable the USD line simply does not render -- never a stale rate.
+  useEffect(() => {
+    fetch('/api/fx')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.ok && typeof d.dopPerUsd === 'number') {
+          setFx({ dopPerUsd: d.dopPerUsd, updated: d.updated ?? null });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   async function onSubmit(event: FormEvent) {
@@ -213,6 +230,12 @@ export function Tasador() {
                   {formatDOP(result.estimate)}
                   <span className="per"> /mes</span>
                 </div>
+                {fx && (
+                  <div className="result-usd" title={fx.updated ? `Tasa actualizada: ${fx.updated}` : undefined}>
+                    ≈ US$ {Math.round(result.estimate / fx.dopPerUsd).toLocaleString('en-US')} /mes
+                    <span className="fx-rate">a RD$ {fx.dopPerUsd.toFixed(2)} por US$</span>
+                  </div>
+                )}
                 <p className="result-basis">
                   Calculado para {result.input.area_m2} m² en {result.input.sector}, con{' '}
                   {result.input.bedrooms} hab. y {result.input.bathrooms} baños
@@ -325,7 +348,8 @@ export function Tasador() {
       </section>
 
       {model && (
-        <section className="container market-card">
+        <section className="container market-split">
+          <SectorMap averages={averages} selected={result?.input.sector ?? sector} />
           <div className="card">
             <div className="card-title">Panorama del mercado</div>
             <div className="market-sub">Alquiler promedio por sector (RD$/mes)</div>

@@ -18,7 +18,8 @@ export function middleware(request: NextRequest) {
     `script-src 'self' 'nonce-${nonce}'${isDev ? " 'unsafe-eval'" : ''}`,
     // Styles stay 'unsafe-inline' (Next injects inline CSS; far lower XSS risk).
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data:",
+    // Map tiles are images from OpenStreetMap; nothing else is allowed in.
+    "img-src 'self' data: https://tile.openstreetmap.org",
     `connect-src 'self' ${supabase} ${api}`,
     "font-src 'self'",
     "object-src 'none'",

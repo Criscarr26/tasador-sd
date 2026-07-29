@@ -1236,3 +1236,75 @@ a {
   outline: none;
   box-shadow: 0 0 0 3px rgba(33, 112, 228, 0.2);
 }
+
+/* ---------- USD reference line ---------- */
+.result-usd {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-usd .fx-rate {
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+/* ---------- Sector map ---------- */
+.market-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.4rem;
+  align-items: start;
+  margin-top: 2.2rem;
+}
+
+@media (max-width: 900px) {
+  .market-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.map-holder {
+  height: 320px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  background: var(--card-2);
+}
+
+/* Leaflet ships its own chrome; align it with the design system. */
+.map-holder .leaflet-container {
+  height: 100%;
+  width: 100%;
+  font-family: var(--font-sans);
+  background: var(--card-2);
+}
+
+.map-holder .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+.map-holder .leaflet-tooltip {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-card);
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.map-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  margin-top: 0.8rem;
+}
