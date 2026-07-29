@@ -1,26 +1,47 @@
-/* Design tokens shared with the mobile app (src/constants/theme.ts):
-   deep navy background, cyan-to-indigo accent. System font stack on
-   purpose -- external font CDNs hang on TLS-inspected networks. */
+/* Tasador SD design system (shared/design/.../tasador_sd_design_system).
+   "Systematic Professionalism": light slate canvas, white cards, deep navy
+   for structure, Caribbean blue for actions, emerald for positive movement.
+   Fonts are self-hosted by next/font at build time -- a font CDN request
+   would hang on TLS-inspected networks. */
 
 :root {
-  --bg: #0b1121;
-  --bg-raised: #0e1630;
-  --card: #141d33;
-  --card-2: #1c2a4a;
-  --border: #243252;
-  --border-soft: rgba(143, 163, 196, 0.14);
-  --text: #f1f5f9;
-  --muted: #8fa3c4;
-  --accent: #38bdf8;
-  --accent-alt: #818cf8;
-  --accent-text: #071018;
-  --success: #34d399;
-  --danger: #fb7185;
-  --gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
-  --shadow-card: 0 18px 44px rgba(2, 6, 23, 0.38);
-  --radius: 18px;
-  --font-sans: 'Segoe UI Variable Display', 'Segoe UI', -apple-system,
-    'SF Pro Display', Roboto, 'Helvetica Neue', sans-serif;
+  /* Canvas and surfaces */
+  --bg: #f7f9fb;
+  --bg-raised: #ffffff;
+  --card: #ffffff;
+  --card-2: #eceef0;
+  --border: #d8dadc;
+  --border-soft: rgba(15, 23, 42, 0.08);
+
+  /* Ink */
+  --text: #191c1e;
+  --muted: #45464d;
+
+  /* Brand */
+  --navy: #0f172a;
+  --accent: #2170e4;
+  --accent-alt: #0058be;
+  --accent-text: #ffffff;
+  --accent-soft: rgba(33, 112, 228, 0.1);
+  --success: #009668;
+  --success-soft: rgba(0, 150, 104, 0.12);
+  --danger: #ba1a1a;
+  --danger-soft: #ffdad6;
+
+  /* Primary CTA: deep navy, per the design system */
+  --gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+
+  /* Elevation: tonal layers, never colorful shadows */
+  --shadow-card: 0 2px 4px rgba(15, 23, 42, 0.05);
+  --shadow-hover: 0 10px 15px -3px rgba(15, 23, 42, 0.1);
+
+  /* Shape: 8px functional, 16px containers */
+  --radius: 16px;
+  --radius-sm: 8px;
+  --radius-pill: 9999px;
+
+  --font-sans: var(--font-inter), Inter, 'Segoe UI', -apple-system, Roboto, sans-serif;
+  --font-display: var(--font-jakarta), 'Plus Jakarta Sans', var(--font-sans);
 }
 
 * {
@@ -30,7 +51,7 @@
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
   scroll-behavior: smooth;
 }
 
@@ -40,6 +61,25 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+}
+
+/* Headlines carry the display face; body text stays on Inter. */
+h1,
+h2,
+h3,
+.card-title,
+.result-price {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Figures line up in columns -- critical when comparing rents. */
+.result-price,
+.result-row .v,
+.market-row .value,
+.stat b,
+.comp-table td {
+  font-variant-numeric: tabular-nums;
 }
 
 a {
@@ -59,7 +99,7 @@ a {
   top: 0;
   z-index: 20;
   backdrop-filter: blur(14px);
-  background: rgba(11, 17, 33, 0.82);
+  background: rgba(255, 255, 255, 0.86);
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -85,7 +125,7 @@ a {
   height: 22px;
   border-radius: 7px;
   background: var(--gradient);
-  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.45);
+  box-shadow: var(--shadow-card);
 }
 
 .nav {
@@ -105,12 +145,12 @@ a {
 
 .nav a:hover {
   color: var(--text);
-  background: rgba(56, 189, 248, 0.08);
+  background: var(--accent-soft);
 }
 
 .nav a.active {
   color: var(--accent);
-  background: rgba(56, 189, 248, 0.12);
+  background: var(--accent-soft);
 }
 
 .session-chip {
@@ -170,9 +210,9 @@ a {
   display: inline-block;
   padding: 0.34rem 1rem;
   border-radius: 999px;
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  color: #93c5fd;
+  background: var(--accent-soft);
+  border: 1px solid rgba(33, 112, 228, 0.35);
+  color: var(--accent-alt);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -284,7 +324,7 @@ a {
 .field select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+  box-shadow: 0 0 0 3px rgba(33, 112, 228, 0.2);
 }
 
 .field-row {
@@ -322,14 +362,14 @@ a {
   font-weight: 700;
   padding: 0.85rem 1rem;
   cursor: pointer;
-  box-shadow: 0 10px 26px rgba(56, 189, 248, 0.35);
+  box-shadow: var(--shadow-card);
   transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
   margin-top: 0.4rem;
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 14px 32px rgba(56, 189, 248, 0.48);
+  box-shadow: var(--shadow-hover);
 }
 
 .btn-primary:active:not(:disabled) {
@@ -357,7 +397,7 @@ a {
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: rgba(56, 189, 248, 0.12);
+  background: var(--accent-soft);
 }
 
 /* ---------- Sliders (tip: sliders for numeric ranges) ---------- */
@@ -400,7 +440,7 @@ a {
   border-radius: 50%;
   background: var(--accent);
   border: 3px solid var(--bg-raised);
-  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.55);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
   cursor: pointer;
 }
 .slider::-moz-range-thumb {
@@ -409,11 +449,11 @@ a {
   border-radius: 50%;
   background: var(--accent);
   border: 3px solid var(--bg-raised);
-  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.55);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
   cursor: pointer;
 }
 .slider:focus-visible {
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+  box-shadow: 0 0 0 3px rgba(33, 112, 228, 0.2);
 }
 
 /* ---------- Steppers ---------- */
@@ -441,7 +481,7 @@ a {
   height: 34px;
   border: none;
   border-radius: 9px;
-  background: rgba(56, 189, 248, 0.1);
+  background: var(--accent-soft);
   color: var(--accent);
   font-size: 1.2rem;
   font-weight: 700;
@@ -450,7 +490,7 @@ a {
   transition: background 0.15s ease;
 }
 .stepper button:hover {
-  background: rgba(56, 189, 248, 0.28);
+  background: var(--accent);
   color: #fff;
 }
 .stepper-value {
@@ -499,7 +539,7 @@ a {
 .toggle-chip.on {
   color: var(--text);
   border-color: var(--accent);
-  background: rgba(56, 189, 248, 0.1);
+  background: var(--accent-soft);
 }
 .toggle-chip.on .toggle-dot {
   background: var(--accent);
@@ -583,15 +623,15 @@ a {
 }
 
 .chip-positive {
-  background: rgba(52, 211, 153, 0.14);
+  background: var(--success-soft);
   color: var(--success);
-  border: 1px solid rgba(52, 211, 153, 0.35);
+  border: 1px solid rgba(0, 150, 104, 0.3);
 }
 
 .chip-negative {
-  background: rgba(143, 163, 196, 0.12);
+  background: var(--card-2);
   color: var(--muted);
-  border: 1px solid rgba(143, 163, 196, 0.28);
+  border: 1px solid var(--border);
 }
 
 .result-rows {
@@ -609,7 +649,7 @@ a {
 }
 
 .result-row + .result-row {
-  border-top: 1px solid rgba(143, 163, 196, 0.08);
+  border-top: 1px solid var(--border-soft);
 }
 
 .result-row .k {
@@ -636,8 +676,8 @@ a {
 }
 
 .error-banner {
-  background: rgba(251, 113, 133, 0.1);
-  border: 1px solid rgba(251, 113, 133, 0.35);
+  background: var(--danger-soft);
+  border: 1px solid rgba(186, 26, 26, 0.3);
   color: var(--danger);
   border-radius: 12px;
   padding: 0.7rem 1rem;
@@ -688,7 +728,7 @@ a {
   display: block;
   height: 100%;
   border-radius: 6px;
-  background: rgba(143, 163, 196, 0.35);
+  background: var(--card-2);
   transition: width 0.5s ease;
 }
 
@@ -834,7 +874,7 @@ a {
     position: sticky;
     bottom: 12px;
     z-index: 5;
-    box-shadow: 0 10px 30px rgba(2, 6, 23, 0.65), 0 10px 26px rgba(56, 189, 248, 0.4);
+    box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.08);
   }
 }
 
@@ -847,4 +887,352 @@ a {
   font-size: 0.8rem;
   line-height: 1.7;
   opacity: 0.85;
+}
+
+/* ==========================================================================
+   Design-system components (shared/design/tasador_sd_design_system)
+   ========================================================================== */
+
+/* ---------- Hero split: copy left, form right ---------- */
+.hero-split {
+  display: grid;
+  grid-template-columns: 1fr 1.05fr;
+  gap: 2.4rem;
+  align-items: start;
+  padding: 3.4rem 1.5rem 2rem;
+  text-align: left;
+}
+
+.hero-copy h1 {
+  font-size: clamp(2.1rem, 4.4vw, 3.2rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.9rem;
+}
+
+.hero-copy h1 .accent {
+  color: var(--accent);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+.hero-copy p {
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  max-width: 46ch;
+}
+
+.hero-split .hero-stats {
+  justify-content: flex-start;
+  gap: 2.2rem;
+  margin-top: 2rem;
+}
+
+.form-card {
+  padding: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .hero-split {
+    grid-template-columns: 1fr;
+    padding-top: 2.4rem;
+  }
+  .hero-copy p {
+    max-width: none;
+  }
+}
+
+/* ---------- Section headings ---------- */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 2.2rem 0 1rem;
+  flex-wrap: wrap;
+}
+
+.section-head h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.feed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.34rem 0.8rem;
+  border-radius: var(--radius-pill);
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.feed-chip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+/* Example-data marker: never let a placeholder read as market data. */
+.tag-ejemplo {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.42rem;
+  border-radius: var(--radius-pill);
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.tag-ejemplo.big {
+  margin-left: 0;
+  font-size: 0.68rem;
+  padding: 0.28rem 0.7rem;
+}
+
+/* ---------- Results grid ---------- */
+.result-grid {
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 1.4rem;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .result-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.result-basis {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  margin: 0.5rem 0 1.2rem;
+}
+
+.result-foot {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  padding-top: 1.1rem;
+  margin-top: 1.1rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.foot-metric .k {
+  display: block;
+  color: var(--muted);
+  font-size: 0.76rem;
+  margin-bottom: 0.2rem;
+}
+
+.foot-metric b {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.foot-metric b.up {
+  color: var(--success);
+}
+
+.foot-metric b.down {
+  color: var(--danger);
+}
+
+.foot-metric b.neutral {
+  color: var(--accent);
+}
+
+/* ---------- Confidence donut ---------- */
+.confidence-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.donut {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  margin: 0.4rem 0 1rem;
+}
+
+.donut svg {
+  width: 100%;
+  height: 100%;
+}
+
+.donut-track {
+  fill: none;
+  stroke: var(--card-2);
+  stroke-width: 11;
+}
+
+.donut-value {
+  fill: none;
+  stroke: var(--success);
+  stroke-width: 11;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.6s ease;
+}
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.donut-center b {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.donut-center span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.confidence-note {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  text-align: center;
+}
+
+/* ---------- Data table (zebra, per the design system) ---------- */
+.table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* The table must scroll inside its own card on narrow screens -- clipping
+   it would hide the status column with no way to reach it. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.comp-table {
+  min-width: 480px;
+}
+
+.comp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.comp-table th {
+  text-align: left;
+  padding: 0.85rem 1.2rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--card-2);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.comp-table td {
+  padding: 0.9rem 1.2rem;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: middle;
+}
+
+.comp-table tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.02);
+}
+
+.comp-table td b {
+  display: block;
+  font-weight: 600;
+}
+
+.comp-table td .sub {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.comp-table td.num {
+  font-weight: 700;
+}
+
+.pill {
+  display: inline-block;
+  padding: 0.22rem 0.6rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.pill-green {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.pill-blue {
+  background: var(--accent-soft);
+  color: var(--accent-alt);
+}
+
+.table-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  padding: 0.9rem 1.2rem;
+}
+
+/* ---------- Segmented control ---------- */
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0.45rem;
+}
+
+.segmented button {
+  padding: 0.6rem 0;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.segmented button:hover {
+  border-color: var(--accent);
+}
+
+.segmented button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.segmented button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(33, 112, 228, 0.2);
 }

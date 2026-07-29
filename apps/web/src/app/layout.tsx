@@ -1,9 +1,27 @@
 import type { Metadata } from 'next';
+import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import { headers } from 'next/headers';
 
 import { Header } from '@/components/header';
 
 import './globals.css';
+
+// Design system fonts (shared/design: Plus Jakarta Sans for headlines, Inter
+// for body). next/font downloads and self-hosts them at build time, so no
+// request ever goes to a font CDN -- those hang on TLS-inspected networks.
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['600', '700'],
+  variable: '--font-jakarta',
+  display: 'swap',
+});
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Tasador SD — Tasación de alquileres en Santo Domingo',
@@ -22,7 +40,7 @@ export default async function RootLayout({
   // (no nonce) and the nonce CSP would block hydration.
   await headers();
   return (
-    <html lang="es">
+    <html lang="es" className={`${jakarta.variable} ${inter.variable}`}>
       <body>
         <Header />
         <main>{children}</main>

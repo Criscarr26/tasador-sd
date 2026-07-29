@@ -6,6 +6,16 @@ import { Appraisal, AppraisalInput, appraise, formatDOP, getModelInfo, ModelInfo
 import { isCloudConfigured, supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/use-session';
 
+// Placeholder rows for the "comparables" panel of the design system. They are
+// rendered behind an explicit "Ejemplo" badge and are NOT market data: the
+// listings table is still empty and the domain model has no geolocation.
+// Swapping them for real rows is a single fetch once the agent has collected.
+const COMPARABLES_EJEMPLO = [
+  { calle: 'Av. Abraham Lincoln', dist: '200 m', specs: '165 m² · 3 hab · 2 baños', precio: 145000, estado: 'Alquilado' },
+  { calle: 'Calle Lope de Vega', dist: '450 m', specs: '140 m² · 2 hab · 2 baños', precio: 125000, estado: 'Activo' },
+  { calle: 'Av. Winston Churchill', dist: '600 m', specs: '110 m² · 2 hab · 2 baños', precio: 98000, estado: 'Activo' },
+];
+
 export function Tasador() {
   const { session } = useSession();
 
@@ -88,39 +98,41 @@ export function Tasador() {
   const maxAvg = Math.max(...Object.values(averages), 1);
   const ranked = Object.entries(averages).sort((a, b) => b[1] - a[1]);
 
+  // Real confidence: the model's R² on the hold-out set. Not invented.
+  const confidence = model ? Math.round(model.metrics.r2 * 100) : null;
+
   return (
     <>
-      <section className="hero container">
-        <div className="hero-badge">TASACIÓN INTELIGENTE</div>
-        <h1>
-          El precio justo de tu alquiler,
-          <br />
-          <span className="accent">en segundos</span>
-        </h1>
-        <p>
-          Machine learning calibrado por sector para el mercado de alquileres de Santo
-          Domingo. Estima, guarda y compara desde el navegador o desde tu teléfono.
-        </p>
-        <div className="hero-stats">
-          <div className="stat">
-            <b>{model ? `${Math.round(model.metrics.r2 * 100)}%` : '—'}</b>
-            <span>precisión (R²)</span>
-          </div>
-          <div className="stat">
-            <b>{model ? formatDOP(model.metrics.mae) : '—'}</b>
-            <span>error medio</span>
-          </div>
-          <div className="stat">
-            <b>{sectors.length || '—'}</b>
-            <span>sectores cubiertos</span>
+      {/* Hero + form, side by side (design system: dashboard header) */}
+      <section className="container hero-split">
+        <div className="hero-copy">
+          <h1>
+            El precio justo de tu alquiler,
+            <br />
+            <span className="accent">en segundos.</span>
+          </h1>
+          <p>
+            Datos del mercado de Santo Domingo para propietarios, inquilinos e
+            inmobiliarias. Valoración de precisión calibrada por sector, de Piantini
+            y Naco en adelante.
+          </p>
+          <div className="hero-stats">
+            <div className="stat">
+              <b>{confidence !== null ? `${confidence}%` : '—'}</b>
+              <span>precisión (R²)</span>
+            </div>
+            <div className="stat">
+              <b>{model ? formatDOP(model.metrics.mae) : '—'}</b>
+              <span>error medio</span>
+            </div>
+            <div className="stat">
+              <b>{sectors.length || '—'}</b>
+              <span>sectores cubiertos</span>
+            </div>
           </div>
         </div>
-      </section>
 
-      <section className="container appraise-grid" id="tasar">
-        <form className="card" onSubmit={onSubmit} aria-busy={busy}>
-          <div className="card-title">Parámetros del inmueble</div>
-
+        <form className="card form-card" onSubmit={onSubmit} aria-busy={busy} id="tasar">
           {apiDown && (
             <div className="error-banner">
               El servicio de tasación no está disponible en este momento. Intenta de nuevo
@@ -136,27 +148,30 @@ export function Tasador() {
             </div>
           ) : (
             <>
-              <div className="field">
-                <label htmlFor="sector">Sector</label>
-                <select id="sector" value={sector} onChange={(e) => setSector(e.target.value)}>
-                  {sectors.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="sector">Sector</label>
+                  <select id="sector" value={sector} onChange={(e) => setSector(e.target.value)}>
+                    {sectors.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Slider id="area" label="Área" value={area} onChange={setArea}
+                  min={20} max={1000} step={5} unit="m²" hint="Superficie construida" />
               </div>
 
-              <Slider id="area" label="Área" value={area} onChange={setArea}
-                min={20} max={1000} step={5} unit="m²" hint="Superficie construida" />
+              <Segmented label="Habitaciones" value={bedrooms} onChange={setBedrooms}
+                options={['0', '1', '2', '3', '4']} lastPlus />
+              <Segmented label="Baños" value={bathrooms} onChange={setBathrooms}
+                options={['1', '2', '3', '4']} lastPlus />
+              <Segmented label="Parqueos" value={parking} onChange={setParking}
+                options={['0', '1', '2', '3']} lastPlus />
+
               <Slider id="age" label="Antigüedad" value={age} onChange={setAge}
                 min={0} max={80} step={1} unit="años" hint="0 = a estrenar" />
-
-              <div className="stepper-row">
-                <Stepper label="Habitaciones" value={bedrooms} onChange={setBedrooms} min={0} max={10} />
-                <Stepper label="Baños" value={bathrooms} onChange={setBathrooms} min={1} max={10} />
-                <Stepper label="Parqueos" value={parking} onChange={setParking} min={0} max={10} />
-              </div>
 
               <button
                 type="button"
@@ -171,55 +186,141 @@ export function Tasador() {
               {error && <div className="error-banner">{error}</div>}
 
               <button className="btn-primary btn-cta" type="submit" disabled={busy || !model}>
-                {busy ? 'Tasando…' : 'Tasar propiedad'}
+                {busy ? 'Tasando…' : 'Calcular tasación'}
               </button>
             </>
           )}
         </form>
+      </section>
 
-        <div className="card">
-          <div className="card-title">Resultado</div>
-          {result ? (
-            <div data-testid="result">
-              <div className="result-label">Precio estimado</div>
-              <div className="result-price">
-                {formatDOP(result.estimate)}
-                <span className="per"> /mes</span>
-              </div>
-              <div
-                className={`result-chip ${result.delta_vs_sector_pct >= 0 ? 'chip-positive' : 'chip-negative'}`}>
-                {result.delta_vs_sector_pct >= 0 ? '+' : ''}
-                {result.delta_vs_sector_pct.toFixed(1)}% vs promedio de {result.input.sector}
-              </div>
-              <div className="result-rows">
-                <div className="result-row">
-                  <span className="k">Rango de confianza</span>
-                  <span className="v">
-                    {formatDOP(result.range_low)} — {formatDOP(result.range_high)}
-                  </span>
-                </div>
-                <div className="result-row">
-                  <span className="k">Promedio del sector</span>
-                  <span className="v">{formatDOP(result.sector_avg)}</span>
-                </div>
-                <div className="result-row">
-                  <span className="k">Modelo</span>
-                  <span className="v">v{result.model_version.slice(0, 8)}</span>
-                </div>
-              </div>
-              {saveStatus && <div className="save-status">{saveStatus}</div>}
-              {!session && isCloudConfigured && (
-                <div className="save-status">
-                  Inicia sesión en Historial para guardar tus tasaciones.
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="empty-state">
-              Complete los parámetros del inmueble y presione <b>Tasar propiedad</b> para
-              obtener la estimación.
-            </div>
+      {/* Results: headline figure + confidence, per the design system */}
+      <section className="container">
+        <div className="section-head">
+          <h2>Resultado de la tasación</h2>
+          {model && (
+            <span className="feed-chip">
+              <i /> MODELO v{model.version.slice(0, 8)}
+            </span>
           )}
+        </div>
+
+        <div className="result-grid">
+          <div className="card result-card">
+            {result ? (
+              <div data-testid="result">
+                <div className="result-label">Alquiler mensual estimado</div>
+                <div className="result-price">
+                  {formatDOP(result.estimate)}
+                  <span className="per"> /mes</span>
+                </div>
+                <p className="result-basis">
+                  Calculado para {result.input.area_m2} m² en {result.input.sector}, con{' '}
+                  {result.input.bedrooms} hab. y {result.input.bathrooms} baños
+                  {result.input.furnished === 1 ? ', amueblado' : ''}.
+                </p>
+
+                <div className="result-rows">
+                  <div className="result-row">
+                    <span className="k">Rango de confianza</span>
+                    <span className="v">
+                      {formatDOP(result.range_low)} — {formatDOP(result.range_high)}
+                    </span>
+                  </div>
+                  <div className="result-row">
+                    <span className="k">Promedio del sector</span>
+                    <span className="v">{formatDOP(result.sector_avg)}</span>
+                  </div>
+                </div>
+
+                <div className="result-foot">
+                  <div className="foot-metric">
+                    <span className="k">Contra el sector</span>
+                    <b className={result.delta_vs_sector_pct >= 0 ? 'up' : 'down'}>
+                      {result.delta_vs_sector_pct >= 0 ? '▲ +' : '▼ '}
+                      {result.delta_vs_sector_pct.toFixed(1)}%
+                    </b>
+                  </div>
+                  <div className="foot-metric">
+                    <span className="k">
+                      Tendencia 6m <em className="tag-ejemplo">ejemplo</em>
+                    </span>
+                    <b className="up">▲ +4.2%</b>
+                  </div>
+                  <div className="foot-metric">
+                    <span className="k">
+                      Demanda <em className="tag-ejemplo">ejemplo</em>
+                    </span>
+                    <b className="neutral">Alta</b>
+                  </div>
+                </div>
+
+                {saveStatus && <div className="save-status">{saveStatus}</div>}
+                {!session && isCloudConfigured && (
+                  <div className="save-status">
+                    Inicia sesión en Historial para guardar tus tasaciones.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="empty-state">
+                Complete los parámetros del inmueble y presione <b>Calcular tasación</b> para
+                obtener la estimación.
+              </div>
+            )}
+          </div>
+
+          <div className="card confidence-card">
+            <div className="card-title">Confianza del modelo</div>
+            <Donut value={confidence} />
+            <p className="confidence-note">
+              {confidence !== null
+                ? `El modelo explica el ${confidence}% de la variación de precios en el conjunto de prueba. Error medio: ${formatDOP(model!.metrics.mae)}.`
+                : 'Cargando métricas del modelo…'}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Comparables: placeholder rows, explicitly badged */}
+      <section className="container">
+        <div className="section-head">
+          <h2>Comparables cercanos</h2>
+          <span className="tag-ejemplo big">datos de ejemplo</span>
+        </div>
+        <div className="card table-card">
+          <div className="table-scroll">
+            <table className="comp-table">
+            <thead>
+              <tr>
+                <th>Propiedad</th>
+                <th>Características</th>
+                <th>Alquiler</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {COMPARABLES_EJEMPLO.map((c) => (
+                <tr key={c.calle}>
+                  <td>
+                    <b>{c.calle}</b>
+                    <span className="sub">a {c.dist}</span>
+                  </td>
+                  <td>{c.specs}</td>
+                  <td className="num">{formatDOP(c.precio)}</td>
+                  <td>
+                    <span className={`pill ${c.estado === 'Alquilado' ? 'pill-green' : 'pill-blue'}`}>
+                      {c.estado}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="table-note">
+            Estas filas son de muestra para ilustrar el reporte. Se reemplazan por
+            comparables reales cuando el agente de datos complete su primera recolección.
+          </p>
         </div>
       </section>
 
@@ -257,13 +358,40 @@ export function Tasador() {
               {model
                 ? `Precisión actual (R²): ${Math.round(model.metrics.r2 * 100)}% · error medio: ${formatDOP(model.metrics.mae)}. `
                 : ''}
-              Es una estimación orientativa, no una tasación oficial. La misma cuenta y el mismo
-              historial funcionan en la web y en la app móvil.
+              Es una estimación orientativa, no una tasación oficial. Las secciones marcadas
+              como <em>ejemplo</em> son marcadores de diseño, no datos de mercado.
             </p>
           </div>
         </details>
       </section>
     </>
+  );
+}
+
+/* Confidence ring. Pure SVG: no chart library, no extra bytes. */
+function Donut({ value }: { value: number | null }) {
+  const pct = value ?? 0;
+  const r = 52;
+  const circumference = 2 * Math.PI * r;
+  const dash = (pct / 100) * circumference;
+  return (
+    <div className="donut">
+      <svg viewBox="0 0 130 130" role="img" aria-label={`Confianza ${pct}%`}>
+        <circle cx="65" cy="65" r={r} className="donut-track" />
+        <circle
+          cx="65"
+          cy="65"
+          r={r}
+          className="donut-value"
+          strokeDasharray={`${dash} ${circumference - dash}`}
+          transform="rotate(-90 65 65)"
+        />
+      </svg>
+      <div className="donut-center">
+        <b>{value !== null ? `${value}%` : '—'}</b>
+        <span>R²</span>
+      </div>
+    </div>
   );
 }
 
@@ -302,25 +430,35 @@ function Slider({
   );
 }
 
-function Stepper({
-  label, value, onChange, min, max,
+/* Segmented control: the design system's pattern for short numeric ranges.
+   The last option acts as "N or more" so the domain range stays reachable. */
+function Segmented({
+  label, value, onChange, options, lastPlus,
 }: {
-  label: string; value: string; onChange: (v: string) => void; min: number; max: number;
+  label: string; value: string; onChange: (v: string) => void;
+  options: string[]; lastPlus?: boolean;
 }) {
-  const v = Number(value);
+  const last = options[options.length - 1];
+  const isOverflow = Number(value) > Number(last);
   return (
-    <div className="field stepper-field">
+    <div className="field">
       <label>{label}</label>
-      <div className="stepper">
-        <button type="button" aria-label={`Menos ${label}`}
-          onClick={() => onChange(String(Math.max(min, v - 1)))}>
-          −
-        </button>
-        <span className="stepper-value">{value}</span>
-        <button type="button" aria-label={`Más ${label}`}
-          onClick={() => onChange(String(Math.min(max, v + 1)))}>
-          +
-        </button>
+      <div className="segmented" role="group" aria-label={label}>
+        {options.map((opt, i) => {
+          const isLast = i === options.length - 1;
+          const active = value === opt || (isLast && lastPlus && isOverflow);
+          return (
+            <button
+              key={opt}
+              type="button"
+              className={active ? 'on' : ''}
+              aria-pressed={active}
+              onClick={() => onChange(opt)}>
+              {opt}
+              {isLast && lastPlus ? '+' : ''}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
