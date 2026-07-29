@@ -1,0 +1,85 @@
+{
+  "name": "Tasador SD — Smoke test de produccion",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "smoke-schedule",
+      "name": "Every day at 8am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Daily production smoke test. Hits the public API exactly as the web app\n// does and checks the model still returns sane appraisals. A deploy that\n// breaks the model is invisible until a customer complains -- this catches\n// it first. Emits ONE alert item only when something is wrong; returns\n// nothing when everything is healthy (no noise).\nconst API = 'https://tasador-sd.vercel.app';\nconst problemas = [];\n\n// 1) /health responds and reports itself healthy.\nlet health = null;\ntry {\n  health = await this.helpers.httpRequest({\n    method: 'GET',\n    url: API + '/health',\n    json: true,\n    timeout: 15000,\n  });\n  if (!health || health.status !== 'ok') {\n    problemas.push('El endpoint /health no devolvio status \"ok\": ' + JSON.stringify(health));\n  }\n} catch (error) {\n  problemas.push('El endpoint /health no respondio: ' + error.message);\n}\n\n// 2) The model is loaded and exposes its sectors. We take the first real\n//    sector for the appraisal probe, so the test never fails just because\n//    a sector name was mistyped.\nlet sector = null;\nlet paramsVersion = null;\ntry {\n  const params = await this.helpers.httpRequest({\n    method: 'GET',\n    url: API + '/v1/model/params',\n    json: true,\n    timeout: 15000,\n  });\n  paramsVersion = params && params.version;\n  const sectores = params && params.params && params.params.sectors;\n  if (!Array.isArray(sectores) || sectores.length === 0) {\n    problemas.push('El endpoint /v1/model/params no devolvio la lista de sectores.');\n  } else {\n    sector = sectores[0];\n  }\n} catch (error) {\n  problemas.push('El endpoint /v1/model/params no respondio: ' + error.message);\n}\n\n// 3) A sample appraisal returns a believable number. Values are inside the\n//    API's sane ranges (bathrooms must be >= 1).\nif (sector) {\n  const muestra = {\n    sector: sector,\n    area_m2: 100,\n    bedrooms: 2,\n    bathrooms: 2,\n    parking_spots: 1,\n    furnished: 0,\n    age_years: 5,\n  };\n  try {\n    const r = await this.helpers.httpRequest({\n      method: 'POST',\n      url: API + '/v1/appraisals',\n      body: muestra,\n      json: true,\n      timeout: 15000,\n    });\n    if (typeof r.estimate !== 'number' || r.estimate <= 0) {\n      problemas.push('La tasacion devolvio un estimate invalido: ' + JSON.stringify(r));\n    } else if (r.currency !== 'DOP' || r.period !== 'monthly') {\n      problemas.push('La tasacion devolvio moneda/periodo inesperado: ' + r.currency + '/' + r.period);\n    } else if (!(r.range_low <= r.estimate && r.estimate <= r.range_high)) {\n      problemas.push('Rango incoherente: ' + r.range_low + ' <= ' + r.estimate + ' <= ' + r.range_high);\n    }\n  } catch (error) {\n    problemas.push('La tasacion de ejemplo fallo para el sector \"' + sector + '\": ' + error.message);\n  }\n}\n\n// 4) Version coherence between /health and /v1/model/params. A half-finished\n//    deploy can leave two different model versions live.\nif (health && health.model_version && paramsVersion && health.model_version !== paramsVersion) {\n  problemas.push('Version del modelo inconsistente: health=' + health.model_version + ' vs params=' + paramsVersion);\n}\n\n// Green run: emit nothing so the alert node never fires.\nif (problemas.length === 0) {\n  return [];\n}\n\nreturn [{\n  json: {\n    alerta: 'El smoke test de produccion encontro problemas',\n    fecha: $now.toISO(),\n    total: problemas.length,\n    problemas: problemas,\n  },\n}];\n"
+      },
+      "id": "smoke-code",
+      "name": "Run production smoke test",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_YOUR_CHAT_ID",
+        "text": "=🚨 Tasador SD — el smoke test de produccion encontro {{ $json.total }} problema(s):\n\n• {{ $json.problemas.join('\\n• ') }}\n\nRevisa el ultimo deploy del API (https://tasador-sd.vercel.app) y el modelo en ml/training/models/model_params.json.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "smoke-telegram",
+      "name": "Send Telegram alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        440,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Every day at 8am": {
+      "main": [
+        [
+          {
+            "node": "Run production smoke test",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run production smoke test": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

@@ -24,6 +24,7 @@ Telegram                                    <- delivery
 | `workflows/gangas-telegram.json` | hourly | Appraises listings first seen in the last 24h against the live API and sends a Telegram alert for each one asking below 85% of the model's estimate. A tasador gets consulted once; a bargain feed gets paid for monthly -- this is the retention product. |
 | `workflows/monitor-ingesta.json` | daily 8:00 | Alerts if not a single listing entered in 7 days. A collector that died three weeks ago unnoticed is worse than no collector. |
 | `workflows/resumen-semanal.json` | Sunday 19:00 | Aggregates the active market by sector (count, new this week, average, range) into one Telegram message. This is the seed of the monthly per-sector price report for real-estate agencies. |
+| `workflows/smoke-test-produccion.json` | daily 8:00 | Calls the live public API (`/health`, `/v1/model/params`, a sample `/v1/appraisals` on the first known sector) and alerts only when the model stops returning sane appraisals. Unlike the others it needs **no Supabase and no collected data** -- it guards the product API itself, so a deploy that breaks the model is caught before a customer notices. |
 
 ## Prerequisites
 
@@ -58,7 +59,12 @@ UI: **Workflows > ⋯ > Import from File** and pick each JSON, or:
 n8n import:workflow --input=services/n8n/workflows/gangas-telegram.json
 n8n import:workflow --input=services/n8n/workflows/monitor-ingesta.json
 n8n import:workflow --input=services/n8n/workflows/resumen-semanal.json
+n8n import:workflow --input=services/n8n/workflows/smoke-test-produccion.json
 ```
+
+`smoke-test-produccion.json` is the exception to the prerequisites above:
+it needs neither migration 0005 nor collected listings (it only calls the
+public API), and its only credential is Telegram -- no Supabase.
 
 Then wire the two credentials (create each once, reuse everywhere):
 
