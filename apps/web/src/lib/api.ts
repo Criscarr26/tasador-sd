@@ -8,6 +8,21 @@ export interface ModelInfo {
   sectors: string[];
   avgPriceBySector: Record<string, number>;
   metrics: { mae: number; rmse: number; r2: number };
+  /** Raw weights. They let the client explain a price instead of only
+   *  showing it -- see lib/advisor.ts. Same numbers the API predicts with,
+   *  so an explanation can never drift from the appraisal. */
+  weights: ModelWeights;
+}
+
+export interface ModelWeights {
+  /** coef[0..sectors.length-1] are the one-hot sector terms;
+   *  the rest line up with numericFeatures, on standardized units. */
+  coef: number[];
+  intercept: number;
+  scalerMean: number[];
+  scalerScale: number[];
+  numericFeatures: string[];
+  sectors: string[];
 }
 
 export interface AppraisalInput {
@@ -33,11 +48,20 @@ export async function getModelInfo(): Promise<ModelInfo> {
   const response = await fetch(`${API_URL}/v1/model/params`);
   if (!response.ok) throw new Error(`API ${response.status}`);
   const body = await response.json();
+  const p = body.params;
   return {
     version: body.version,
-    sectors: body.params.sectors,
-    avgPriceBySector: body.params.avg_price_by_sector,
-    metrics: body.params.metrics,
+    sectors: p.sectors,
+    avgPriceBySector: p.avg_price_by_sector,
+    metrics: p.metrics,
+    weights: {
+      coef: p.coef,
+      intercept: p.intercept,
+      scalerMean: p.scaler_mean,
+      scalerScale: p.scaler_scale,
+      numericFeatures: p.numeric_features,
+      sectors: p.sectors,
+    },
   };
 }
 

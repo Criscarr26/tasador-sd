@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 
 import { Appraisal, AppraisalInput, appraise, formatDOP, getModelInfo, ModelInfo } from '@/lib/api';
+import { AdvisorPanel } from '@/components/advisor-panel';
+import { Chat } from '@/components/chat';
 import { SectorMap } from '@/components/sector-map';
 import { isCloudConfigured, supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/use-session';
@@ -304,6 +306,14 @@ export function Tasador() {
         </div>
       </section>
 
+      {result && model?.weights && (
+        <AdvisorPanel
+          weights={model.weights}
+          input={result.input}
+          estimate={result.estimate}
+        />
+      )}
+
       {/* Comparables: placeholder rows, explicitly badged */}
       <section className="container">
         <div className="section-head">
@@ -388,6 +398,14 @@ export function Tasador() {
           </div>
         </details>
       </section>
+
+      <Chat
+        context={
+          result
+            ? `Sector ${result.input.sector}, ${result.input.area_m2} m², ${result.input.bedrooms} hab, ${result.input.bathrooms} baños, ${result.input.parking_spots} parqueos, ${result.input.furnished ? 'amueblado' : 'sin amueblar'}, ${result.input.age_years} años. Estimado: RD$ ${Math.round(result.estimate).toLocaleString('en-US')}/mes.`
+            : undefined
+        }
+      />
     </>
   );
 }
