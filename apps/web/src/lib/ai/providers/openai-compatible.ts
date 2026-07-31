@@ -12,6 +12,8 @@ export function openAICompatibleProvider(opts: {
   model: string;
   /** Local runtimes need no credentials. */
   requireKey: boolean;
+  /** A 7B model on CPU needs far longer than a hosted one. */
+  timeoutMs?: number;
 }): AIProvider {
   if (opts.requireKey && !opts.apiKey) {
     throw new AIConfigError(`Falta la API key para el proveedor ${opts.id}`);
@@ -63,7 +65,7 @@ export function openAICompatibleProvider(opts: {
           ...(opts.apiKey ? { authorization: `Bearer ${opts.apiKey}` } : {}),
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(60000), // local models are slower
+        signal: AbortSignal.timeout(opts.timeoutMs ?? 60000),
       });
 
       if (!res.ok) {

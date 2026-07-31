@@ -32,8 +32,12 @@ export function getProvider(): AIProvider {
       return openAICompatibleProvider({
         id: 'ollama',
         baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434/v1',
-        model: process.env.AI_MODEL || 'qwen2.5-coder:7b',
+        model: process.env.AI_MODEL || 'qwen2.5:7b',
         requireKey: false,
+        // A 7B model on CPU can take minutes on the first call (model load
+        // plus prompt processing). Local development only, so a long wait
+        // beats a spurious failure.
+        timeoutMs: Number(process.env.AI_TIMEOUT_MS) || 300000,
       });
 
     default:
