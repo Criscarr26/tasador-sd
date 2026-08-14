@@ -84,7 +84,9 @@ export function Chat({ context }: { context?: string }) {
     send(draft);
   }
 
-  if (available === false) return null;
+  // Render nothing until the probe answers: showing the button first and
+  // pulling it away a moment later reads as a glitch.
+  if (!available) return null;
 
   return (
     <>
