@@ -225,19 +225,18 @@ def get_model_params() -> dict:
     return {"version": MODEL_VERSION, "params": MODEL}
 
 
-# TEMPORARY DIAGNOSTIC -- remove once routing is confirmed.
-# Every route started returning 404 in production while deploys stayed green,
-# which means the path the platform hands this function stopped matching the
-# declared routes. This catch-all reports what actually arrives so the fix is
-# based on evidence instead of a guess. It exposes no data beyond the request
-# path itself.
-@app.get("/{full_path:path}")
-def _diagnose_path(full_path: str, request: Request) -> dict:
-    return {
-        "diagnostic": "unmatched route",
-        "scope_path": request.scope.get("path"),
-        "raw_path": str(request.scope.get("raw_path")),
-        "root_path": request.scope.get("root_path"),
-        "full_path_param": full_path,
-        "known_routes": ["/health", "/v1/appraisals", "/v1/model/params"],
-    }
+# Unmatched routes report the path the platform actually delivered. Kept
+# deliberately: this API went fully dark once because a rewrite silently
+# stopped forwarding the original path, and a plain 404 gave no clue why.
+# Returns a real 404 so it never masks a routing failure as success, and
+# exposes nothing beyond the request path.
+@app.api_route("/{full_path:path}", methods=["GET", "POST"])
+def _unmatched(full_path: str, request: Request) -> JSONResponse:
+    return JSONResponse(
+        status_code=404,
+        content={
+            "detail": "Not Found",
+            "received_path": request.scope.get("path"),
+            "known_routes": ["/health", "/v1/appraisals", "/v1/model/params"],
+        },
+    )
