@@ -106,6 +106,28 @@ app.add_middleware(
 )
 
 
+# vercel.json rewrites every path to /api/index. Whether the platform hands
+# the function the ORIGINAL path (/health) or the REWRITTEN one
+# (/api/index/health, or bare /api/index) has changed underneath us before
+# and took the whole API down with 404s on every route. Normalizing here
+# makes routing independent of that choice: strip the function prefix when
+# present, and treat a bare prefix as the root.
+_FUNCTION_PREFIX = "/api/index"
+
+
+@app.middleware("http")
+async def strip_function_prefix(request: Request, call_next):
+    path = request.scope.get("path", "")
+    if path == _FUNCTION_PREFIX or path.startswith(_FUNCTION_PREFIX + "/"):
+        stripped = path[len(_FUNCTION_PREFIX) :] or "/"
+        request.scope["path"] = stripped
+        # raw_path is bytes and takes precedence in some servers; keep both
+        # in sync or the router may still see the old value.
+        if "raw_path" in request.scope:
+            request.scope["raw_path"] = stripped.encode()
+    return await call_next(request)
+
+
 # In-process rate limit per client IP (sliding 60s window), same policy as
 # the container API (apps/api/main.py). On Vercel this counter lives per
 # warm lambda instance -- not shared across concurrent instances -- so it
@@ -201,3 +223,21 @@ def create_appraisal(request: AppraisalRequest) -> dict:
 @app.get("/v1/model/params")
 def get_model_params() -> dict:
     return {"version": MODEL_VERSION, "params": MODEL}
+
+
+# TEMPORARY DIAGNOSTIC -- remove once routing is confirmed.
+# Every route started returning 404 in production while deploys stayed green,
+# which means the path the platform hands this function stopped matching the
+# declared routes. This catch-all reports what actually arrives so the fix is
+# based on evidence instead of a guess. It exposes no data beyond the request
+# path itself.
+@app.get("/{full_path:path}")
+def _diagnose_path(full_path: str, request: Request) -> dict:
+    return {
+        "diagnostic": "unmatched route",
+        "scope_path": request.scope.get("path"),
+        "raw_path": str(request.scope.get("raw_path")),
+        "root_path": request.scope.get("root_path"),
+        "full_path_param": full_path,
+        "known_routes": ["/health", "/v1/appraisals", "/v1/model/params"],
+    }
