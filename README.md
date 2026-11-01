@@ -191,6 +191,30 @@ Verified end-to-end against live services: sign in, appraise
 (RD$ 83,862 on the Piantini reference case), automatic history save,
 shared history across web and mobile.
 
+## Production watch
+
+CI proves a commit is sound; it says nothing about what is live right
+now. `.github/workflows/production-watch.yml` runs every six hours and
+checks the running product: the API answers and still returns believable
+appraisals, the web app serves its own page, and every table reaches
+PostgREST with row level security still on. Those database calls are
+also the keep-alive — the free tier pauses a project after about a week
+without traffic.
+
+A failure opens a single issue labelled `production-watch`, which the
+next healthy run closes by itself. With `TELEGRAM_BOT_TOKEN` and
+`TELEGRAM_CHAT_ID` set, it also sends the alert to Telegram.
+
+Repository secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY` (both required;
+the anonymous key is public by design, but keeping it in secrets makes
+rotating it a settings change rather than a commit).
+
+The same checks run locally against production:
+
+```bash
+python scripts/monitor_production.py
+```
+
 ## Development
 
 ```bash

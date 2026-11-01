@@ -1,0 +1,138 @@
+name: Production watch
+
+# A scheduled check of the live product, for two reasons. The API once
+# went dark because a rewrite stopped forwarding request paths, and it
+# stayed dark for months because nothing was watching. And the Supabase
+# free tier pauses a project after about a week without traffic, which is
+# how the database ended up suspended -- these runs are that traffic.
+#
+# Note for long quiet spells: GitHub disables scheduled workflows in a
+# repository with no activity for 60 days, and emails the owner first.
+# If that mail arrives, re-enable the workflow from the Actions tab.
+
+on:
+  schedule:
+    # Every six hours, deliberately off the hour: runs scheduled at :00
+    # queue behind everyone else's and start late.
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# Never let two runs file alerts over each other.
+concurrency:
+  group: production-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    env:
+      # The anonymous key is public by design (it ships in the browser
+      # bundle), but it lives in secrets so rotating it is not a commit.
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      # Optional. Without these the run still alerts through an issue.
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      REPORT: ${{ runner.temp }}/report.md
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # The checks live in the repository, not in this file, so they can be
+      # run and debugged locally: python scripts/monitor_production.py
+      # The script uses the standard library only, so there is no install
+      # step to break.
+      - name: Check production
+        run: python scripts/monitor_production.py --report "$REPORT"
+
+      - name: Publish the report in the run summary
+        if: always()
+        run: cat "$REPORT" >> "$GITHUB_STEP_SUMMARY" || true
+
+      # One open issue per outage, not one per run: a three-day outage
+      # would otherwise file twelve. GitHub emails the owner when it opens.
+      - name: Open the alert issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const label = 'production-watch';
+
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: label,
+            });
+            if (open.data.length) {
+              core.notice(`Issue #${open.data[0].number} is already open for this.`);
+              return;
+            }
+
+            // Creating the label up front: an issue created with a label
+            // that does not exist yet is not worth gambling on.
+            try {
+              await github.rest.issues.createLabel({
+                owner, repo, name: label, color: 'b60205',
+                description: 'Opened automatically when production fails its checks',
+              });
+            } catch (error) {
+              core.debug(`Label already there: ${error.message}`);
+            }
+
+            const report = fs.existsSync(process.env.REPORT)
+              ? fs.readFileSync(process.env.REPORT, 'utf8')
+              : 'The watch failed before it could write a report, so the '
+                + 'checks themselves may be broken.';
+            const run = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            const issue = await github.rest.issues.create({
+              owner, repo, labels: [label],
+              title: 'Production watch: the live product is failing its checks',
+              body: `${report}\n[Full run](${run})\n\nThis issue closes itself on the first healthy run.`,
+            });
+            core.notice(`Opened issue #${issue.data.number}.`);
+
+      - name: Close the alert issue once healthy
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: 'production-watch',
+            });
+            const run = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `Recovered: every check passed in [this run](${run}).`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number,
+                state: 'closed', state_reason: 'completed',
+              });
+              core.notice(`Closed issue #${issue.number}.`);
+            }
+
+      # Reaches a phone, which an email does not always do. Skipped
+      # entirely when the secrets are absent, and never fails the run:
+      # a missed notification must not hide the outage behind it.
+      - name: Send the Telegram alert
+        if: failure() && env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
+        continue-on-error: true
+        run: |
+          report="$(cat "$REPORT" 2>/dev/null || echo 'The watch failed before writing a report.')"
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          text="$(printf 'Tasador SD - production watch failed.\n\n%s\n%s' "$report" "$run_url")"
+          curl -sS --max-time 20 -o /dev/null \
+            -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+            --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" \
+            --data-urlencode "text=$text"
