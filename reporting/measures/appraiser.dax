@@ -1,0 +1,80 @@
+// Appraiser — prices a property from the model weights, with no API call.
+//
+// A linear regression's exported weights reproduce a full appraisal with
+// arithmetic alone: the intercept, plus the sector's one-hot offset, plus each
+// standardised feature times its coefficient. That is exactly what
+// api/index.py does in Python and what apps/web/src/lib/advisor.ts does in
+// TypeScript. Three implementations, one definition — and
+// measures/reference-check.dax proves this one still agrees with the others.
+//
+// ---------------------------------------------------------------------------
+// BEFORE PASTING THESE, create six what-if parameters:
+//   Modeling → New parameter → Numeric range
+//
+//   Name          Min    Max    Increment    Default
+//   Area m2        20    1000       5          100
+//   Bedrooms        0      10       1            2
+//   Bathrooms       1      10       1            2
+//   Parking         0      10       1            1
+//   Furnished       0       1       1            0
+//   Age Years       0      80       1            5
+//
+// The ranges are the API's own accepted ranges from api/index.py, so the
+// report cannot produce an appraisal the product would reject as invalid.
+// Each parameter creates a table and a "<name> Value" measure; the measures
+// below read those.
+// ---------------------------------------------------------------------------
+
+
+Model Intercept =
+MINX ( ModelMetrics, ModelMetrics[intercept_dop] )
+
+
+Selected Sector Coefficient =
+// Falls back to 0 rather than blank, so an unselected sector degrades to the
+// base case instead of emptying the whole card.
+SELECTEDVALUE ( Sectors[sector_coefficient], 0 )
+
+
+Estimated Rent =
+VAR Contributions =
+    SUMX (
+        MarginalValues,
+        VAR RawValue =
+            SWITCH (
+                MarginalValues[feature],
+                "area_m2", [Area m2 Value],
+                "bedrooms", [Bedrooms Value],
+                "bathrooms", [Bathrooms Value],
+                "parking_spots", [Parking Value],
+                "furnished", [Furnished Value],
+                "age_years", [Age Years Value]
+            )
+        RETURN
+            MarginalValues[coefficient_scaled]
+                * DIVIDE (
+                    RawValue - MarginalValues[scaler_mean],
+                    MarginalValues[scaler_scale]
+                )
+    )
+RETURN
+    [Model Intercept] + [Selected Sector Coefficient] + Contributions
+
+
+Estimate Low =
+// The API publishes its range as the estimate plus or minus one RMSE, never
+// below zero. Same rule here, so the report and the product never disagree
+// about the same property.
+MAX ( [Estimated Rent] - MINX ( ModelMetrics, ModelMetrics[rmse_dop] ), 0 )
+
+
+Estimate High =
+[Estimated Rent] + MINX ( ModelMetrics, ModelMetrics[rmse_dop] )
+
+
+Delta vs Sector Average =
+// How the appraisal sits against what that sector rents for on average.
+// Format as a percentage.
+VAR SectorAverage = SELECTEDVALUE ( Sectors[average_rent_dop] )
+RETURN
+    DIVIDE ( [Estimated Rent] - SectorAverage, SectorAverage )

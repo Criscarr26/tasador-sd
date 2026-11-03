@@ -1,0 +1,54 @@
+// Reference check — proves this report computes what the model says.
+//
+// model_params.json ships three appraisals with the price each must produce.
+// packages/core_py, apps/api and the serverless parity test are all held to
+// them in CI. These two bring the report into the same contract, so a report
+// that has drifted says so on its own page instead of showing confident wrong
+// numbers to whoever is reading it.
+//
+// Add BOTH as CALCULATED COLUMNS on ReferenceCases — Modeling → New column —
+// not as measures: each one is evaluated per reference case.
+//
+// If "Parity" ever reads DRIFT, trust the model and not the report.
+
+
+Computed Rent =
+VAR SectorCoefficient =
+    LOOKUPVALUE (
+        Sectors[sector_coefficient],
+        Sectors[sector], ReferenceCases[sector]
+    )
+VAR Contributions =
+    SUMX (
+        MarginalValues,
+        VAR RawValue =
+            SWITCH (
+                MarginalValues[feature],
+                "area_m2", ReferenceCases[area_m2],
+                "bedrooms", ReferenceCases[bedrooms],
+                "bathrooms", ReferenceCases[bathrooms],
+                "parking_spots", ReferenceCases[parking_spots],
+                "furnished", ReferenceCases[furnished],
+                "age_years", ReferenceCases[age_years]
+            )
+        RETURN
+            MarginalValues[coefficient_scaled]
+                * DIVIDE (
+                    RawValue - MarginalValues[scaler_mean],
+                    MarginalValues[scaler_scale]
+                )
+    )
+RETURN
+    MINX ( ModelMetrics, ModelMetrics[intercept_dop] )
+        + SectorCoefficient
+        + Contributions
+
+
+Parity =
+// One cent of tolerance. Both sides are the same arithmetic in different
+// engines, so anything larger is a real difference and not rounding.
+IF (
+    ABS ( ReferenceCases[Computed Rent] - ReferenceCases[expected_dop] ) < 0.01,
+    "match",
+    "DRIFT"
+)
