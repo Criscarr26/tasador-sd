@@ -16,3 +16,12 @@ dist/
 .claude/
 .vscode/
 .DS_Store
+
+# Power BI
+# A .pbix is a binary archive: it cannot be diffed, reviewed in a pull
+# request, or merged. reporting/queries and reporting/measures are the
+# versioned source of truth and the report is rebuilt from them.
+*.pbix
+*.pbit
+reporting/exports/*
+!reporting/exports/.gitkeep
